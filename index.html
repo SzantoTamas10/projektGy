@@ -6,11 +6,18 @@
   <title>Projektgyűjtemény</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Inter', sans-serif;
       background-color: #121212;
       color: #f5f5f5;
-      padding: 40px;
+      line-height: 1.6;
+      padding: 40px 20px;
     }
 
     h1 {
@@ -18,40 +25,55 @@
       margin-bottom: 30px;
       border-bottom: 2px solid #444;
       padding-bottom: 10px;
+      text-align: center;
     }
 
     nav {
-      display: flex;
-      flex-direction: column;
+      display: grid;
       gap: 15px;
+      max-width: 600px;
+      margin: 0 auto;
     }
 
     nav a {
       text-decoration: none;
       color: #f5f5f5;
       background-color: #1e1e1e;
-      padding: 15px 20px;
-      border-radius: 8px;
+      padding: 16px 24px;
+      border-radius: 10px;
       transition: background-color 0.3s, transform 0.2s;
       font-size: 1.1rem;
       box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      display: block;
+      text-align: center;
     }
 
     nav a:hover {
       background-color: #333;
       transform: translateY(-2px);
     }
+
+    @media (max-width: 500px) {
+      h1 {
+        font-size: 1.8rem;
+      }
+
+      nav a {
+        font-size: 1rem;
+        padding: 14px 18px;
+      }
+    }
   </style>
 </head>
 <body>
   <h1>Projektgyűjtemény</h1>
   <nav>
-    <a href="files/cegjegyzek.zip" download>📂 Cégjegyzék REST API</a>
-    <a href="files/diak_jegy_kezeles.zip" download>🎓 Diák jegy kezelés</a>
-    <a href="files/film_adatbazis.zip" download>🎬 Film adatbázis</a>
-    <a href="files/foglalaskezelo.zip" download>📅 Foglaláskezelő</a>
-    <a href="files/konyvtarkezelo.zip" download>📚 Könyvtárkezelő</a>
-    <a href="files/template_multiapp_projekt.zip" download>🧩 Template multiapp projekt</a>
+    <a href="https://drive.google.com/file/d/1bQaMeWe1BLYxU6qyOMaocT2rLP74D7ct/view?usp=sharing" download>📂 Cégjegyzék REST API</a>
+    <a href="https://drive.google.com/file/d/1cPSMoj1cbpSEr2DU5z9Q8_uIicUkhJmd/view?usp=sharing" download>🎓 Diák jegy kezelés</a>
+    <a href="https://drive.google.com/file/d/11uwb1k7V_xy2fMAveEKQ0GEyN2DYsyNR/view?usp=sharing" download>🎬 Film adatbázis</a>
+    <a href="https://drive.google.com/file/d/1JduxTFXqR91GSBth-R_KOhu0lyF0lO-A/view?usp=sharing" download>📅 Foglaláskezelő</a>
+    <a href="https://drive.google.com/file/d/1QkIF1IKwXe3WXVYxXX2tH9TiwNoja-Ij/view?usp=sharing" download>📚 Könyvtárkezelő</a>
+    <a href="https://drive.google.com/file/d/1dY3xZeJCjeXZMnkv0KfHQ70heDvzxTJL/view?usp=sharing" download>🧩 Template multiapp projekt</a>
   </nav>
 </body>
 </html>
