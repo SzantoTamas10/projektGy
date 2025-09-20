@@ -1,184 +1,179 @@
-<!doctype html> <!-- HTML5 dokumentum deklaráció -->
-<html lang="hu"> <!-- Oldal nyelve magyar -->
+<!doctype html>
+<html lang="hu">
 <head>
-  <meta charset="utf-8"> <!-- Karakterkódolás UTF-8 -->
-  <meta name="viewport" content="width=device-width,initial-scale=1"> <!-- Reszponzív oldal mobil eszközökön -->
-  <title>404 — Pac‑Man írja</title> <!-- Oldal címe -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>404 — Pac‑Man írja</title>
   <style>
-    html,body{
-      height:100%; /* Teljes magasság a body és html elemnek */
-      margin:0; /* Alapértelmezett margó eltávolítása */
-      background:#000; /* Fekete háttér */
-      color:#ffd400; /* Sárga szöveg */
-      font-family:system-ui,sans-serif; /* Betűtípus */
-    }
-    canvas{
-      display:block;
-      width:100%;
-      height:100%;
-    } /* A canvas kitölti a teljes képernyőt */
-    #wrap{
-      position:fixed;
-      inset:0; /* Top, right, bottom, left 0 */
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    } /* A wrap container középre helyezi a canvas-t */
+    html,body{height:100%;margin:0;background:#000;color:#ffd400;font-family:system-ui,sans-serif;}
+    canvas{display:block;width:100%;height:100%}
+    #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
   </style>
 </head>
 <body>
 <div id="wrap">
-  <canvas id="c"></canvas> <!-- A Pac-Man animációt rajzoló canvas -->
+  <canvas id="c"></canvas>
 </div>
 <script>
-const lines = ["404 error", "page is not found"]; // A kiírandó szövegek két sorban
-const canvas = document.getElementById('c'); // Canvas elem kiválasztása
-const ctx = canvas.getContext('2d'); // 2D rajzolási kontextus
+const lines = ["404 error", "page is not found"]; 
+const canvas = document.getElementById('c'); 
+const ctx = canvas.getContext('2d'); 
 
-let W, H, scale, fontSize, lineHeight; // Változók a vászon méretéhez és szöveghez
-
+let W, H, scale, fontSize, lineHeight; 
 function resize(){
-  const ratio = window.devicePixelRatio || 1; // Retina kijelző esetén pixel arány
-  W = window.innerWidth; // Ablak szélesség
-  H = window.innerHeight; // Ablak magasság
-  canvas.width = Math.floor(W * ratio); // Canvas fizikai szélesség
-  canvas.height = Math.floor(H * ratio); // Canvas fizikai magasság
-  canvas.style.width = W + 'px'; // Canvas CSS szélesség
-  canvas.style.height = H + 'px'; // Canvas CSS magasság
-  ctx.setTransform(ratio,0,0,ratio,0,0); // Skálázás a pixel arányhoz
-  scale = Math.min(W/900, H/400); // Méretezés a canvas arányához
-  fontSize = Math.floor(Math.min(W*0.1, H*0.25)); // Betűméret számítása
-  lineHeight = fontSize * 1.2; // Sor magasság
+  const ratio = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * ratio);
+  canvas.height = Math.floor(H * ratio);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  scale = Math.min(W/900, H/400);
+  fontSize = Math.floor(Math.min(W*0.1, H*0.25));
+  lineHeight = fontSize * 1.2;
 }
 
-// Pac-Man állapot objektum
 const pac = {x:0, y:0, r:28, vx:3, mouth:0}; 
-/* x,y = pozíció, r = sugár, vx = sebesség, mouth = száj animációhoz */
-let lastTime = 0; // Előző frame időbélyege
-let charIndex = 0; // Aktuális karakter index
-let lineIndex = 0; // Aktuális sor index
-let positions = []; // Karakter pozíciók tárolása
-let finished = false; // Animáció befejeződött-e
+let lastTime = 0; 
+let charIndex = 0; 
+let lineIndex = 0; 
+let positions = []; 
+let finished = false; 
 
 function preparePositions(){
-  ctx.font = `bold ${fontSize}px system-ui, sans-serif`; // Betűstílus
-  ctx.textBaseline = 'middle'; // Vertikális igazítás
-  ctx.textAlign = 'left'; // Horizontális igazítás
+  ctx.font = `bold ${fontSize}px system-ui, sans-serif`; 
+  ctx.textBaseline = 'middle'; 
+  ctx.textAlign = 'left'; 
 
-  positions = []; // Törlés minden újrafelhasználás előtt
-  const totalHeight = lineHeight * lines.length; // Teljes szövegmagasság
+  positions = []; 
+  const totalHeight = lineHeight * lines.length; 
   lines.forEach((line,i)=>{
-    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2; // Sor középre helyezése függőlegesen
-    let x = (W - ctx.measureText(line).width)/2; // Sor vízszintesen középre
+    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2; 
+    let x = (W - ctx.measureText(line).width)/2; 
     let linePositions = [];
     for(let j=0;j<line.length;j++){
-      const ch = line[j]; // Aktuális karakter
-      const w = ctx.measureText(line.slice(0,j+1)).width; // Karakter pozíciója a sorban
-      linePositions.push({char:ch, x: x + w, y}); // Karakter pozíció tárolása
+      const ch = line[j]; 
+      const w = ctx.measureText(line.slice(0,j+1)).width; 
+      linePositions.push({char:ch, x: x + w, y}); 
     }
-    positions.push(linePositions); // Sor pozíciók tárolása
+    positions.push(linePositions); 
   });
 }
 
 function drawText(){
-  ctx.fillStyle = '#ffd400'; // Szöveg színe
-  ctx.font = `bold ${fontSize}px system-ui, sans-serif`; // Betűstílus
+  ctx.fillStyle = '#ffd400'; 
+  ctx.font = `bold ${fontSize}px system-ui, sans-serif`; 
   ctx.textBaseline = 'middle'; 
   ctx.textAlign = 'left';
   const totalHeight = lineHeight * lines.length; 
   lines.forEach((line,i)=>{
-    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2; // Sor középre
-    let x = (W - ctx.measureText(line).width)/2; // Sor vízszintesen középre
-    // Látható karakterek kiválasztása animációhoz
+    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2; 
+    let x = (W - ctx.measureText(line).width)/2; 
     let visibleChars = positions[i].filter((p, idx)=> idx < (i<lineIndex ? positions[i].length : (i===lineIndex ? charIndex : 0)));
-    let textToDraw = visibleChars.map(p=>p.char).join(''); // Szöveg összerakása
-    ctx.fillText(textToDraw, x, y); // Szöveg kirajzolása
+    let textToDraw = visibleChars.map(p=>p.char).join(''); 
+    ctx.fillText(textToDraw, x, y); 
   });
 }
 
-function drawPac(x,y,r,smile=false){
-  const mouthOpen = 0.15 + 0.15 * Math.abs(Math.sin(pac.mouth)); // Szájnyitás animációhoz
-  const start = mouthOpen * Math.PI; // Száj kezdő szöge
-  const end = -mouthOpen * Math.PI; // Száj záró szöge
+function drawPac(x,y,r){
+  const mouthOpen = 0.15 + 0.15 * Math.abs(Math.sin(pac.mouth)); 
+  const start = mouthOpen * Math.PI; 
+  const end = -mouthOpen * Math.PI; 
   ctx.beginPath();
   ctx.moveTo(x,y);
-  ctx.arc(x,y,r,start,end,false); // Pac-Man rajzolása
+  ctx.arc(x,y,r,start,end,false); 
   ctx.closePath();
   ctx.fillStyle = '#ffd400';
-  ctx.fill(); // Pac-Man kitöltése sárgával
+  ctx.fill(); 
   ctx.beginPath();
-  ctx.arc(x, y-r*0.35, r*0.14, 0, Math.PI*2); // Pac-Man szem
+  ctx.arc(x, y-r*0.35, r*0.14, 0, Math.PI*2); 
   ctx.fillStyle = '#000';
   ctx.fill();
 }
 
 function animate(t){
-  const dt = (t - lastTime)/16.666; // Idő eltelt az előző frame óta (FPS normalizálás)
+  const dt = (t - lastTime)/16.666; 
   lastTime = t;
   if(!finished){
-    pac.mouth += dt*0.35; // Száj animáció
-    pac.x += pac.vx*scale*dt; // Pac-Man vízszintes mozgása
+    pac.mouth += dt*0.35; 
+    pac.x += pac.vx*scale*dt; 
 
     if(lineIndex < positions.length){
       if(charIndex < positions[lineIndex].length){
         const nextPos = positions[lineIndex][charIndex]; 
         if(pac.x >= nextPos.x){
-          charIndex++; // Következő karakter
+          charIndex++; 
         }
       } else {
-        lineIndex++; // Következő sor
+        lineIndex++; 
         charIndex = 0;
         if(lineIndex < positions.length){
-          pac.x = positions[lineIndex][0].x - 50; // Pozíció kezdetre
+          pac.x = positions[lineIndex][0].x - 50; 
           pac.y = positions[lineIndex][0].y;
         } else {
-          finished = true; // Animáció vége
+          finished = true; 
         }
       }
     } else {
-      finished = true; // Animáció vége
+      finished = true; 
     }
   }
 
-  ctx.clearRect(0,0,W,H); // Vászon törlése minden frame előtt
-  drawText(); // Szöveg kirajzolása
+  ctx.clearRect(0,0,W,H); 
+  drawText(); 
+
+  // Bal felső sarok - "sorry"
+ctx.textAlign = 'left';
+ctx.textBaseline = 'top';
+ctx.font = `bold ${fontSize*0.2}px Comic Sans MS, cursive`; // kisebb, kézírásos
+ctx.fillStyle = '#ffd400';
+ctx.fillText('sorry', 10, 10);
+
+// Jobb felső sarok - "limited edition"
+ctx.textAlign = 'right';
+ctx.textBaseline = 'top';
+ctx.font = `bold ${fontSize*0.2}px Comic Sans MS, cursive`; // kisebb, kézírásos
+ctx.fillStyle = '#ffd400';
+ctx.fillText('limited edition', W - 10, 10);
+
 
   if(!finished){
     pac.y = positions[lineIndex][0].y;
-    drawPac(pac.x, pac.y, pac.r*scale); // Pac-Man kirajzolása a sor végén
+    drawPac(pac.x, pac.y, pac.r*scale); 
   } else {
-  // Pac-Man a szöveg alatt, távolság a sorok közötti felével
-const totalHeight = lineHeight * lines.length; // Teljes szövegmagasság
-const finalY = H/2 - totalHeight/2 + lines.length*lineHeight + lineHeight/2; 
-const finalX = W/2;
-drawPac(finalX, finalY, pac.r*scale); // Pac-Man végső pozícióban
+    // Pac-Man a szöveg alatt, távolság fele a sorok közötti távolságnak
+    const totalHeight = lineHeight * lines.length;
+    const finalY = H/2 - totalHeight/2 + lines.length*lineHeight + lineHeight/2;
+    const finalX = W/2;
+    drawPac(finalX, finalY, pac.r*scale); 
   }
 
-  requestAnimationFrame(animate); // Következő frame meghívása
+  requestAnimationFrame(animate); 
 }
 
 function init(){
-  resize(); // Canvas és méretek beállítása
-  preparePositions(); // Karakter pozíciók előkészítése
-  pac.x = positions[0][0].x - 50; // Pac-Man kezdő pozíció
+  resize(); 
+  preparePositions(); 
+  pac.x = positions[0][0].x - 50; 
   pac.y = positions[0][0].y;
-  pac.r = 28; // Sugár
-  pac.vx = 3; // Sebesség
+  pac.r = 28; 
+  pac.vx = 3; 
   charIndex = 0; 
   lineIndex = 0;
-  finished = false;
+  finished = false; 
   lastTime = performance.now();
-  requestAnimationFrame(animate); // Animáció elindítása
+  requestAnimationFrame(animate); 
 }
 
 window.addEventListener('resize', ()=>{
-  resize(); // Ablakméret változás esetén újra méretezés
-  preparePositions(); // Pozíciók újraszámolása
+  resize(); 
+  preparePositions(); 
 });
 
 resize();
 preparePositions();
-init(); // Inicializálás
+init(); 
 </script>
 </body>
 </html>
