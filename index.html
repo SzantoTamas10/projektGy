@@ -1,179 +1,205 @@
 <!doctype html>
 <html lang="hu">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>404 — Pac‑Man írja</title>
-  <style>
-    html,body{height:100%;margin:0;background:#000;color:#ffd400;font-family:system-ui,sans-serif;}
-    canvas{display:block;width:100%;height:100%}
-    #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>404 — Pac‑Man írja</title>
+<style>
+html, body {height:100%; margin:0; background:#000; color:#ffd400; font-family:system-ui,sans-serif;}
+canvas {display:block;}
+#wrap {position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+#watch {
+  position:absolute;
+  top:10px;
+  left:10px;
+  width:250px;
+  height:250px;
+  border:1px solid #28d1fa;
+}
+#limited {
+  position:absolute;
+  top:10px;
+  right:10px;
+  color:#28d1fa;
+  font-family:Comic Sans MS, cursive;
+  font-weight:bold;
+  font-size:18px;
+}
+</style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="c"></canvas>
+  <canvas id="watch" width="500" height="500"></canvas>
+  <div id="limited">limited edition</div>
 </div>
-<script>
-const lines = ["404 error", "page is not found"]; 
-const canvas = document.getElementById('c'); 
-const ctx = canvas.getContext('2d'); 
 
-let W, H, scale, fontSize, lineHeight; 
+<script>
+// === PAC-MAN 404 rész ===
+const lines = ["404 error", "page is not found"];
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W,H,scale,fontSize,lineHeight;
 function resize(){
   const ratio = window.devicePixelRatio || 1;
-  W = window.innerWidth;
-  H = window.innerHeight;
-  canvas.width = Math.floor(W * ratio);
-  canvas.height = Math.floor(H * ratio);
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.floor(W*ratio);
+  canvas.height = Math.floor(H*ratio);
+  canvas.style.width = W+'px';
+  canvas.style.height = H+'px';
   ctx.setTransform(ratio,0,0,ratio,0,0);
-  scale = Math.min(W/900, H/400);
-  fontSize = Math.floor(Math.min(W*0.1, H*0.25));
-  lineHeight = fontSize * 1.2;
+  scale = Math.min(W/900,H/400);
+  fontSize = Math.floor(Math.min(W*0.1,H*0.25));
+  lineHeight = fontSize*1.2;
 }
 
-const pac = {x:0, y:0, r:28, vx:3, mouth:0}; 
-let lastTime = 0; 
-let charIndex = 0; 
-let lineIndex = 0; 
-let positions = []; 
-let finished = false; 
+const pac = {x:0,y:0,r:28,vx:3,mouth:0};
+let lastTime=0,charIndex=0,lineIndex=0,positions=[],finished=false;
 
 function preparePositions(){
-  ctx.font = `bold ${fontSize}px system-ui, sans-serif`; 
-  ctx.textBaseline = 'middle'; 
-  ctx.textAlign = 'left'; 
-
-  positions = []; 
-  const totalHeight = lineHeight * lines.length; 
+  ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+  ctx.textBaseline='middle'; ctx.textAlign='left';
+  positions = [];
+  const totalHeight = lineHeight*lines.length;
   lines.forEach((line,i)=>{
-    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2; 
-    let x = (W - ctx.measureText(line).width)/2; 
-    let linePositions = [];
+    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2;
+    let x = (W - ctx.measureText(line).width)/2;
+    let linePositions=[];
     for(let j=0;j<line.length;j++){
-      const ch = line[j]; 
-      const w = ctx.measureText(line.slice(0,j+1)).width; 
-      linePositions.push({char:ch, x: x + w, y}); 
+      const w = ctx.measureText(line.slice(0,j+1)).width;
+      linePositions.push({char:line[j], x:x+w, y});
     }
-    positions.push(linePositions); 
+    positions.push(linePositions);
   });
 }
 
 function drawText(){
-  ctx.fillStyle = '#ffd400'; 
-  ctx.font = `bold ${fontSize}px system-ui, sans-serif`; 
-  ctx.textBaseline = 'middle'; 
-  ctx.textAlign = 'left';
-  const totalHeight = lineHeight * lines.length; 
+  ctx.fillStyle='#ffd400';
+  ctx.font=`bold ${fontSize}px system-ui, sans-serif`;
+  ctx.textBaseline='middle'; ctx.textAlign='left';
+  const totalHeight = lineHeight*lines.length;
   lines.forEach((line,i)=>{
-    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2; 
-    let x = (W - ctx.measureText(line).width)/2; 
+    let x = (W-ctx.measureText(line).width)/2;
+    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2;
     let visibleChars = positions[i].filter((p, idx)=> idx < (i<lineIndex ? positions[i].length : (i===lineIndex ? charIndex : 0)));
-    let textToDraw = visibleChars.map(p=>p.char).join(''); 
-    ctx.fillText(textToDraw, x, y); 
+    let textToDraw = visibleChars.map(p=>p.char).join('');
+    ctx.fillText(textToDraw, x, y);
   });
 }
 
 function drawPac(x,y,r){
-  const mouthOpen = 0.15 + 0.15 * Math.abs(Math.sin(pac.mouth)); 
-  const start = mouthOpen * Math.PI; 
-  const end = -mouthOpen * Math.PI; 
+  const mouthOpen = 0.15+0.15*Math.abs(Math.sin(pac.mouth));
+  const start = mouthOpen*Math.PI;
+  const end = -mouthOpen*Math.PI;
   ctx.beginPath();
   ctx.moveTo(x,y);
-  ctx.arc(x,y,r,start,end,false); 
+  ctx.arc(x,y,r,start,end,false);
   ctx.closePath();
-  ctx.fillStyle = '#ffd400';
-  ctx.fill(); 
+  ctx.fillStyle='#ffd400'; ctx.fill();
   ctx.beginPath();
-  ctx.arc(x, y-r*0.35, r*0.14, 0, Math.PI*2); 
-  ctx.fillStyle = '#000';
-  ctx.fill();
+  ctx.arc(x, y-r*0.35, r*0.14,0,Math.PI*2);
+  ctx.fillStyle='#000'; ctx.fill();
 }
 
 function animate(t){
-  const dt = (t - lastTime)/16.666; 
-  lastTime = t;
+  const dt=(t-lastTime)/16.666;
+  lastTime=t;
   if(!finished){
-    pac.mouth += dt*0.35; 
-    pac.x += pac.vx*scale*dt; 
-
-    if(lineIndex < positions.length){
-      if(charIndex < positions[lineIndex].length){
-        const nextPos = positions[lineIndex][charIndex]; 
-        if(pac.x >= nextPos.x){
-          charIndex++; 
-        }
+    pac.mouth += dt*0.35;
+    pac.x += pac.vx*scale*dt;
+    if(lineIndex<positions.length){
+      if(charIndex<positions[lineIndex].length){
+        const nextPos=positions[lineIndex][charIndex];
+        if(pac.x>=nextPos.x) charIndex++;
       } else {
-        lineIndex++; 
-        charIndex = 0;
-        if(lineIndex < positions.length){
-          pac.x = positions[lineIndex][0].x - 50; 
-          pac.y = positions[lineIndex][0].y;
-        } else {
-          finished = true; 
-        }
+        lineIndex++; charIndex=0;
+        if(lineIndex<positions.length){
+          pac.x=positions[lineIndex][0].x-50;
+          pac.y=positions[lineIndex][0].y;
+        } else finished=true;
       }
-    } else {
-      finished = true; 
-    }
+    } else finished=true;
   }
 
-  ctx.clearRect(0,0,W,H); 
-  drawText(); 
+  ctx.clearRect(0,0,W,H);
+  drawText();
 
-  // Bal felső sarok - "sorry"
-ctx.textAlign = 'left';
-ctx.textBaseline = 'top';
-ctx.font = `bold ${fontSize*0.2}px Comic Sans MS, cursive`; // kisebb, kézírásos
-ctx.fillStyle = '#ffd400';
-ctx.fillText('sorry', 10, 10);
-
-// Jobb felső sarok - "limited edition"
-ctx.textAlign = 'right';
-ctx.textBaseline = 'top';
-ctx.font = `bold ${fontSize*0.2}px Comic Sans MS, cursive`; // kisebb, kézírásos
-ctx.fillStyle = '#ffd400';
-ctx.fillText('limited edition', W - 10, 10);
-
+  // "sorry" felirat bal felső
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.font=`bold ${fontSize*0.2}px Comic Sans MS, cursive`;
+  ctx.fillStyle='#ffd400';
+  ctx.fillText('sorry',10,10);
 
   if(!finished){
-    pac.y = positions[lineIndex][0].y;
-    drawPac(pac.x, pac.y, pac.r*scale); 
+    pac.y=positions[lineIndex][0].y;
+    drawPac(pac.x,pac.y,pac.r*scale);
   } else {
-    // Pac-Man a szöveg alatt, távolság fele a sorok közötti távolságnak
-    const totalHeight = lineHeight * lines.length;
+    const totalHeight = lineHeight*lines.length;
     const finalY = H/2 - totalHeight/2 + lines.length*lineHeight + lineHeight/2;
     const finalX = W/2;
-    drawPac(finalX, finalY, pac.r*scale); 
+    drawPac(finalX,finalY,pac.r*scale);
   }
 
-  requestAnimationFrame(animate); 
+  requestAnimationFrame(animate);
 }
 
 function init(){
-  resize(); 
-  preparePositions(); 
-  pac.x = positions[0][0].x - 50; 
+  resize();
+  preparePositions();
+  pac.x = positions[0][0].x-50;
   pac.y = positions[0][0].y;
-  pac.r = 28; 
-  pac.vx = 3; 
-  charIndex = 0; 
-  lineIndex = 0;
-  finished = false; 
-  lastTime = performance.now();
-  requestAnimationFrame(animate); 
+  pac.r=28; pac.vx=3;
+  charIndex=0; lineIndex=0; finished=false;
+  lastTime=performance.now();
+  requestAnimationFrame(animate);
 }
 
 window.addEventListener('resize', ()=>{
-  resize(); 
-  preparePositions(); 
+  resize(); preparePositions();
 });
 
-resize();
-preparePositions();
-init(); 
+resize(); preparePositions(); init();
+
+// === ÓRA rész ===
+var watchCanvas = document.getElementById('watch');
+var wctx = watchCanvas.getContext('2d');
+const watchSize = 500;  // belső rajzolás
+const displaySize = 250; // megjelenített méret
+const factor = displaySize / watchSize;
+
+wctx.strokeStyle='#28d1fa';
+wctx.lineWidth=17*factor;
+wctx.lineCap='round';
+wctx.shadowColor='#28d1fa';
+wctx.shadowBlur=15*factor;
+
+function degToRad(d){return d*Math.PI/180;}
+function renderClock(){
+  var now=new Date();
+  var today=now.toDateString();
+  var time=now.toLocaleTimeString();
+  var hours=now.getHours(), minutes=now.getMinutes(), seconds=now.getSeconds();
+  var ms=now.getMilliseconds();
+  var newSeconds=seconds+ms/1000;
+
+  wctx.fillStyle='#000';
+  wctx.fillRect(0,0,watchSize,watchSize);
+
+  wctx.beginPath();
+  wctx.arc(250,250,200,degToRad(270),degToRad((hours*15)-90)); wctx.stroke();
+  wctx.beginPath();
+  wctx.arc(250,250,170,degToRad(270),degToRad((minutes*6)-90)); wctx.stroke();
+  wctx.beginPath();
+  wctx.arc(250,250,140,degToRad(270),degToRad((newSeconds*6)-90)); wctx.stroke();
+
+  wctx.font=`25px Arial`;
+  wctx.fillStyle='#28d1fa';
+  wctx.fillText(today,160,250);
+  wctx.fillText(time,190,280);
+}
+
+setInterval(renderClock,40);
 </script>
 </body>
 </html>
