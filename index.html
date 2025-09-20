@@ -1,81 +1,184 @@
-<!DOCTYPE html>
-<html lang="hu">
+<!doctype html> <!-- HTML5 dokumentum deklaráció -->
+<html lang="hu"> <!-- Oldal nyelve magyar -->
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Projektgyűjtemény</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <meta charset="utf-8"> <!-- Karakterkódolás UTF-8 -->
+  <meta name="viewport" content="width=device-width,initial-scale=1"> <!-- Reszponzív oldal mobil eszközökön -->
+  <title>404 — Pac‑Man írja</title> <!-- Oldal címe -->
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    html,body{
+      height:100%; /* Teljes magasság a body és html elemnek */
+      margin:0; /* Alapértelmezett margó eltávolítása */
+      background:#000; /* Fekete háttér */
+      color:#ffd400; /* Sárga szöveg */
+      font-family:system-ui,sans-serif; /* Betűtípus */
     }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #121212;
-      color: #f5f5f5;
-      line-height: 1.6;
-      padding: 40px 20px;
-    }
-
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 30px;
-      border-bottom: 2px solid #444;
-      padding-bottom: 10px;
-      text-align: center;
-    }
-
-    nav {
-      display: grid;
-      gap: 15px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    nav a {
-      text-decoration: none;
-      color: #f5f5f5;
-      background-color: #1e1e1e;
-      padding: 16px 24px;
-      border-radius: 10px;
-      transition: background-color 0.3s, transform 0.2s;
-      font-size: 1.1rem;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-      display: block;
-      text-align: center;
-    }
-
-    nav a:hover {
-      background-color: #333;
-      transform: translateY(-2px);
-    }
-
-    @media (max-width: 500px) {
-      h1 {
-        font-size: 1.8rem;
-      }
-
-      nav a {
-        font-size: 1rem;
-        padding: 14px 18px;
-      }
-    }
+    canvas{
+      display:block;
+      width:100%;
+      height:100%;
+    } /* A canvas kitölti a teljes képernyőt */
+    #wrap{
+      position:fixed;
+      inset:0; /* Top, right, bottom, left 0 */
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    } /* A wrap container középre helyezi a canvas-t */
   </style>
 </head>
 <body>
-  <h1>Projektgyűjtemény</h1>
-  <nav>
-    <a href="https://drive.google.com/file/d/1bQaMeWe1BLYxU6qyOMaocT2rLP74D7ct/view?usp=sharing" download>📂 Cégjegyzék REST API</a>
-    <a href="https://drive.google.com/file/d/1cPSMoj1cbpSEr2DU5z9Q8_uIicUkhJmd/view?usp=sharing" download>🎓 Diák jegy kezelés</a>
-    <a href="https://drive.google.com/file/d/11uwb1k7V_xy2fMAveEKQ0GEyN2DYsyNR/view?usp=sharing" download>🎬 Film adatbázis</a>
-    <a href="https://drive.google.com/file/d/1JduxTFXqR91GSBth-R_KOhu0lyF0lO-A/view?usp=sharing" download>📅 Foglaláskezelő</a>
-    <a href="https://drive.google.com/file/d/1QkIF1IKwXe3WXVYxXX2tH9TiwNoja-Ij/view?usp=sharing" download>📚 Könyvtárkezelő</a>
-    <a href="https://drive.google.com/file/d/1dY3xZeJCjeXZMnkv0KfHQ70heDvzxTJL/view?usp=sharing" download>🧩 Template multiapp projekt</a>
-    <a href="https://nono951357.github.io/">nono951357.github</a>
-    <a href="https://drive.google.com/drive/folders/1q_u-lAYHtrgyswCzDTvCcMTrojsLFVQK?usp=sharing">Doksik</a>
-  </nav>
+<div id="wrap">
+  <canvas id="c"></canvas> <!-- A Pac-Man animációt rajzoló canvas -->
+</div>
+<script>
+const lines = ["404 error", "page is not found"]; // A kiírandó szövegek két sorban
+const canvas = document.getElementById('c'); // Canvas elem kiválasztása
+const ctx = canvas.getContext('2d'); // 2D rajzolási kontextus
+
+let W, H, scale, fontSize, lineHeight; // Változók a vászon méretéhez és szöveghez
+
+function resize(){
+  const ratio = window.devicePixelRatio || 1; // Retina kijelző esetén pixel arány
+  W = window.innerWidth; // Ablak szélesség
+  H = window.innerHeight; // Ablak magasság
+  canvas.width = Math.floor(W * ratio); // Canvas fizikai szélesség
+  canvas.height = Math.floor(H * ratio); // Canvas fizikai magasság
+  canvas.style.width = W + 'px'; // Canvas CSS szélesség
+  canvas.style.height = H + 'px'; // Canvas CSS magasság
+  ctx.setTransform(ratio,0,0,ratio,0,0); // Skálázás a pixel arányhoz
+  scale = Math.min(W/900, H/400); // Méretezés a canvas arányához
+  fontSize = Math.floor(Math.min(W*0.1, H*0.25)); // Betűméret számítása
+  lineHeight = fontSize * 1.2; // Sor magasság
+}
+
+// Pac-Man állapot objektum
+const pac = {x:0, y:0, r:28, vx:3, mouth:0}; 
+/* x,y = pozíció, r = sugár, vx = sebesség, mouth = száj animációhoz */
+let lastTime = 0; // Előző frame időbélyege
+let charIndex = 0; // Aktuális karakter index
+let lineIndex = 0; // Aktuális sor index
+let positions = []; // Karakter pozíciók tárolása
+let finished = false; // Animáció befejeződött-e
+
+function preparePositions(){
+  ctx.font = `bold ${fontSize}px system-ui, sans-serif`; // Betűstílus
+  ctx.textBaseline = 'middle'; // Vertikális igazítás
+  ctx.textAlign = 'left'; // Horizontális igazítás
+
+  positions = []; // Törlés minden újrafelhasználás előtt
+  const totalHeight = lineHeight * lines.length; // Teljes szövegmagasság
+  lines.forEach((line,i)=>{
+    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2; // Sor középre helyezése függőlegesen
+    let x = (W - ctx.measureText(line).width)/2; // Sor vízszintesen középre
+    let linePositions = [];
+    for(let j=0;j<line.length;j++){
+      const ch = line[j]; // Aktuális karakter
+      const w = ctx.measureText(line.slice(0,j+1)).width; // Karakter pozíciója a sorban
+      linePositions.push({char:ch, x: x + w, y}); // Karakter pozíció tárolása
+    }
+    positions.push(linePositions); // Sor pozíciók tárolása
+  });
+}
+
+function drawText(){
+  ctx.fillStyle = '#ffd400'; // Szöveg színe
+  ctx.font = `bold ${fontSize}px system-ui, sans-serif`; // Betűstílus
+  ctx.textBaseline = 'middle'; 
+  ctx.textAlign = 'left';
+  const totalHeight = lineHeight * lines.length; 
+  lines.forEach((line,i)=>{
+    let y = H/2 - totalHeight/2 + i*lineHeight + lineHeight/2; // Sor középre
+    let x = (W - ctx.measureText(line).width)/2; // Sor vízszintesen középre
+    // Látható karakterek kiválasztása animációhoz
+    let visibleChars = positions[i].filter((p, idx)=> idx < (i<lineIndex ? positions[i].length : (i===lineIndex ? charIndex : 0)));
+    let textToDraw = visibleChars.map(p=>p.char).join(''); // Szöveg összerakása
+    ctx.fillText(textToDraw, x, y); // Szöveg kirajzolása
+  });
+}
+
+function drawPac(x,y,r,smile=false){
+  const mouthOpen = 0.15 + 0.15 * Math.abs(Math.sin(pac.mouth)); // Szájnyitás animációhoz
+  const start = mouthOpen * Math.PI; // Száj kezdő szöge
+  const end = -mouthOpen * Math.PI; // Száj záró szöge
+  ctx.beginPath();
+  ctx.moveTo(x,y);
+  ctx.arc(x,y,r,start,end,false); // Pac-Man rajzolása
+  ctx.closePath();
+  ctx.fillStyle = '#ffd400';
+  ctx.fill(); // Pac-Man kitöltése sárgával
+  ctx.beginPath();
+  ctx.arc(x, y-r*0.35, r*0.14, 0, Math.PI*2); // Pac-Man szem
+  ctx.fillStyle = '#000';
+  ctx.fill();
+}
+
+function animate(t){
+  const dt = (t - lastTime)/16.666; // Idő eltelt az előző frame óta (FPS normalizálás)
+  lastTime = t;
+  if(!finished){
+    pac.mouth += dt*0.35; // Száj animáció
+    pac.x += pac.vx*scale*dt; // Pac-Man vízszintes mozgása
+
+    if(lineIndex < positions.length){
+      if(charIndex < positions[lineIndex].length){
+        const nextPos = positions[lineIndex][charIndex]; 
+        if(pac.x >= nextPos.x){
+          charIndex++; // Következő karakter
+        }
+      } else {
+        lineIndex++; // Következő sor
+        charIndex = 0;
+        if(lineIndex < positions.length){
+          pac.x = positions[lineIndex][0].x - 50; // Pozíció kezdetre
+          pac.y = positions[lineIndex][0].y;
+        } else {
+          finished = true; // Animáció vége
+        }
+      }
+    } else {
+      finished = true; // Animáció vége
+    }
+  }
+
+  ctx.clearRect(0,0,W,H); // Vászon törlése minden frame előtt
+  drawText(); // Szöveg kirajzolása
+
+  if(!finished){
+    pac.y = positions[lineIndex][0].y;
+    drawPac(pac.x, pac.y, pac.r*scale); // Pac-Man kirajzolása a sor végén
+  } else {
+  // Pac-Man a szöveg alatt, távolság a sorok közötti felével
+const totalHeight = lineHeight * lines.length; // Teljes szövegmagasság
+const finalY = H/2 - totalHeight/2 + lines.length*lineHeight + lineHeight/2; 
+const finalX = W/2;
+drawPac(finalX, finalY, pac.r*scale); // Pac-Man végső pozícióban
+  }
+
+  requestAnimationFrame(animate); // Következő frame meghívása
+}
+
+function init(){
+  resize(); // Canvas és méretek beállítása
+  preparePositions(); // Karakter pozíciók előkészítése
+  pac.x = positions[0][0].x - 50; // Pac-Man kezdő pozíció
+  pac.y = positions[0][0].y;
+  pac.r = 28; // Sugár
+  pac.vx = 3; // Sebesség
+  charIndex = 0; 
+  lineIndex = 0;
+  finished = false;
+  lastTime = performance.now();
+  requestAnimationFrame(animate); // Animáció elindítása
+}
+
+window.addEventListener('resize', ()=>{
+  resize(); // Ablakméret változás esetén újra méretezés
+  preparePositions(); // Pozíciók újraszámolása
+});
+
+resize();
+preparePositions();
+init(); // Inicializálás
+</script>
 </body>
 </html>
