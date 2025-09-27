@@ -165,11 +165,16 @@ function drawPac(x,y,r,angle){
   ctx.arc(x,y,r,start,end,false);
   ctx.closePath();
   ctx.fillStyle='#ffd400'; ctx.fill();
-  // szem
-  const eyeX=x+Math.cos(angle-Math.PI/2)*r*0.5;
-  const eyeY=y+Math.sin(angle-Math.PI/2)*r*0.5;
+  // szem mindig a száj fölött
+  const eyeAngle = angle - Math.PI/2;
+  const eyeX = x + Math.cos(eyeAngle) * r * 0.5;
+  const eyeY = y + Math.sin(eyeAngle) * r * 0.5;
   ctx.beginPath();
-  ctx.arc(eyeX,eyeY,r*0.15,0,Math.PI*2);
+  ctx.arc(eyeX,eyeY,r*0.18,0,Math.PI*2);
+  ctx.fillStyle='#fff';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(eyeX,eyeY,r*0.08,0,Math.PI*2);
   ctx.fillStyle='#000';
   ctx.fill();
 }
@@ -179,9 +184,9 @@ function animate(t){
   updateBackground();
   ctx.clearRect(0,0,W,H);
   drawText();
-  pac.mouth+=dt*0.35;
+  pac.mouth+=0.1;
   if(!finished){
-    pac.x+=pac.vx*scale*dt;
+    pac.x+=pac.vx*scale;
     if(lineIndex<positions.length){
       if(charIndex<positions[lineIndex].length){
         if(pac.x>=positions[lineIndex][charIndex].x) charIndex++;
@@ -194,7 +199,6 @@ function animate(t){
       }
     }
   } else {
-    // követő mód - kisebb méret és távolság megtartása
     pac.r=12;
     let nearest=null,dist=Infinity;
     ghosts.forEach(g=>{
@@ -204,10 +208,10 @@ function animate(t){
     if(nearest){
       const angle=Math.atan2(nearest.y-pac.y,nearest.x-pac.x);
       pac.angle=angle;
-      const minDist=70;
+      const minDist=90;
       if(dist>minDist){
-        pac.x+=Math.cos(angle)*2*scale*dt;
-        pac.y+=Math.sin(angle)*2*scale*dt;
+        pac.x+=Math.cos(angle)*1.5;
+        pac.y+=Math.sin(angle)*1.5;
       }
     }
   }
