@@ -68,7 +68,7 @@ html, body {
   line-height: 1;
 }
 
-/* Egyszerű Óra (CANVAS helyett DIV) */
+/* Egyszerű Óra (DIV) */
 #current-time {
     color: #ffd400;
     font-size: 18px;
@@ -94,6 +94,37 @@ html, body {
 #stats strong {
   color: #ffd400;
   font-weight: bold;
+}
+/* ÚJ STÍLUS: Csúszkák */
+.speed-control {
+    width: 100%;
+    margin-bottom: 15px;
+}
+.speed-control p {
+    margin-bottom: 5px;
+}
+#pac-speed-slider, #ghost-speed-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: #555;
+    outline: none;
+    opacity: 0.7;
+    transition: opacity .2s;
+    border-radius: 4px;
+}
+#pac-speed-slider:hover, #ghost-speed-slider:hover {
+    opacity: 1;
+}
+#pac-speed-slider::-webkit-slider-thumb, #ghost-speed-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%; 
+    background: #ffd400;
+    cursor: pointer;
 }
 
 
@@ -144,8 +175,17 @@ canvas {display:block; position:absolute; inset:0;}
     
     <div id="stats">
       <h2>STATISZTIKA</h2>
-      <p>Pac-Man sebessége: <strong id="stat-pac-speed"></strong> px/képkocka</p>
-      <p>Szellemek sebessége: <strong id="stat-ghost-speed"></strong> px/képkocka</p>
+      
+      <div class="speed-control">
+        <p>Pac-Man sebessége: <strong id="stat-pac-speed"></strong> px/képkocka</p>
+        <input type="range" id="pac-speed-slider" min="0.5" max="5.0" step="0.1" value="1.5">
+      </div>
+
+      <div class="speed-control">
+        <p>Szellemek sebessége (átlag): <strong id="stat-ghost-speed"></strong> px/képkocka</p>
+        <input type="range" id="ghost-speed-slider" min="0.5" max="3.0" step="0.1" value="1.0">
+      </div>
+
       <p>Elkapott szellemek: <strong id="stat-ghosts-eaten">0</strong></p>
       <p>Elnyelt pontszám: <strong id="stat-points-earned">0</strong></p>
     </div>
@@ -171,15 +211,18 @@ const statGhostSpeed = document.getElementById('stat-ghost-speed');
 const statGhostsEaten = document.getElementById('stat-ghosts-eaten');
 const statPointsEarned = document.getElementById('stat-points-earned');
 
+// ÚJ CSÚSZKA DOM elemek
+const pacSpeedSlider = document.getElementById('pac-speed-slider');
+const ghostSpeedSlider = document.getElementById('ghost-speed-slider');
+
 let W,H,scale,fontSize,lineHeight;
 const lines=["404 error","page is not found"];
 let score=0;
 const scoreboard=document.getElementById('scoreboard');
 
-// Szellemek újraéledési változók (KÜLÖNVÁLASZTVA A STATISZTIKÁTÓL)
-let ghostsToRespawn = 0; // Ez kezeli a sorban álló újraéledéseket
-let totalGhostsEaten = 0; // Ez a statisztikai számláló (NEM nullázódik)
-
+// Szellemek újraéledési változók
+let ghostsToRespawn = 0; 
+let totalGhostsEaten = 0; 
 let respawnCooldown = 0;
 const RESPAWN_TIME = 120; // 2 másodperc 
 
@@ -188,16 +231,32 @@ const GHOST_RADIUS = 12;
 const PAC_R_WRITING_FACTOR = 0.45; 
 const PAC_R_FREE_SIZE = GHOST_RADIUS; 
 
-// Sebesség konstansok a statisztikához
-const PAC_MOVE_SPEED = 1.5; // MÓDOSÍTVA: Pac-Man lassabb lett
-const GHOST_MIN_SPEED = 0.5;
-const GHOST_MAX_SPEED = 1.5;
+// Sebesség változók (most már DINAMIKUSAK)
+let PAC_MOVE_SPEED = 1.5; // Alapérték (lassítva)
+let GHOST_AVG_SPEED = 1.0; // Alapérték a csúszkáról
+const GHOST_SPEED_VARIATION = 0.5; // Fix eltérés az átlagtól (0.5 és 1.5 között mozognak)
 
 
-// === Menü Kezelés (MÓDOSÍTVA) ===
+// === Sebességek Frissítése Csúszkákról ===
+function updateSpeeds() {
+  // 1. Pac-Man sebesség frissítése
+  PAC_MOVE_SPEED = parseFloat(pacSpeedSlider.value);
+  // Sebesség kiírása statisztikába (scale-el szorozva, valós képernyő pixel/képkocka sebesség)
+  statPacSpeed.textContent = (PAC_MOVE_SPEED * scale).toFixed(1);
+  
+  // 2. Szellem sebesség frissítése (átlag)
+  GHOST_AVG_SPEED = parseFloat(ghostSpeedSlider.value);
+  statGhostSpeed.textContent = (GHOST_AVG_SPEED * scale).toFixed(1);
+}
+
+// Csúszkák eseménykezelője
+pacSpeedSlider.addEventListener('input', updateSpeeds);
+ghostSpeedSlider.addEventListener('input', updateSpeeds);
+
+
+// === Menü Kezelés ===
 function toggleMenu() {
   sidebar.classList.toggle('open');
-  // Megjeleníti / Elrejti a nyitó gombot
   if (sidebar.classList.contains('open')) {
     menuButton.classList.add('hidden'); 
   } else {
@@ -225,9 +284,8 @@ function resize(){
   fontSize=Math.floor(Math.min(W*0.08,H*0.2));
   lineHeight=fontSize*1.2;
   
-  // STATISZTIKA FRISSÍTÉS: Sebességek
-  statPacSpeed.textContent = (PAC_MOVE_SPEED * scale).toFixed(1);
-  statGhostSpeed.textContent = (((GHOST_MIN_SPEED + GHOST_MAX_SPEED) / 2) * scale).toFixed(1);
+  // STATISZTIKA FRISSÍTÉS: Sebességek újraszámolása a skálához
+  updateSpeeds(); 
 }
 
 window.addEventListener('resize',()=>{resize();preparePositions();});
@@ -241,18 +299,27 @@ let stars = Array.from({length:80},()=>({
   tw:Math.random()*100
 }));
 
-// === Szellemek ===
+// === Szellemek (MÓDOSÍTVA) ===
 const ghostColors=['#ff0000','#00ffde','#ffb8ff','#ffb847'];
 let ghosts=[];
 /**
- * Létrehoz egy új szellemet, véletlenszerű pozícióban.
+ * Létrehoz egy új szellemet, véletlenszerű pozícióban, a dinamikus sebesség alapján.
  */
 function spawnGhost(){
   const c=ghostColors[Math.floor(Math.random()*ghostColors.length)];
   let x = Math.random()*W;
   let y = Math.random()*H/2+50;
-  const vx = (Math.random()<0.5?-1:1)*(GHOST_MIN_SPEED + Math.random() * (GHOST_MAX_SPEED - GHOST_MIN_SPEED));
-  const vy = (Math.random()<0.5?-1:1)*(GHOST_MIN_SPEED + Math.random() * (GHOST_MAX_SPEED - GHOST_MIN_SPEED));
+  
+  // Dinamikus szellem sebesség tartomány számítása
+  const minS = GHOST_AVG_SPEED - GHOST_SPEED_VARIATION;
+  const maxS = GHOST_AVG_SPEED + GHOST_SPEED_VARIATION;
+  
+  // Sebesség generálása a dinamikus tartományban
+  // (biztosítjuk, hogy a sebesség minimum 0.1 legyen, ha a csúszka túl alacsony)
+  const speed = Math.max(0.1, minS + Math.random() * (maxS - minS));
+  
+  const vx = (Math.random()<0.5?-1:1)*speed;
+  const vy = (Math.random()<0.5?-1:1)*speed;
   ghosts.push(
     {x,y,vx:vx,vy:vy,color:c}
   );
@@ -306,7 +373,7 @@ function updateBackground(){
   });
 }
 
-// === Pac-Man és szöveg ===
+// === Pac-Man és szöveg (A mozgás itt használja a dinamikus PAC_MOVE_SPEED változót) ===
 const pac={x:0,y:0,r:0,vx:3,mouth:0,angle:0}; 
 let lastTime=0,charIndex=0,lineIndex=0,positions=[],finished=false;
 
@@ -367,7 +434,6 @@ function drawPac(x,y,r,angle){
 // === Pontszám popup ===
 let scorePopups = [];
 
-// MÓDOSÍTÁS: Számlálók frissítése
 function eatGhostCheck() {
   ghosts = ghosts.filter(g => {
     const pacR_scaled = pac.r * scale; 
@@ -378,10 +444,7 @@ function eatGhostCheck() {
       
       scorePopups.push({x: g.x, y: g.y, text: "+100", life: 60});
       
-      // ÚJRAÉLEDÉSI SOR: növeljük, hogy spawnoljon egy új
       ghostsToRespawn++; 
-      
-      // STATISZTIKA: növeljük a teljes elkapott szellemek számát (ez fut tovább)
       totalGhostsEaten++; 
       statGhostsEaten.textContent = totalGhostsEaten;
       statPointsEarned.textContent = score;
@@ -463,18 +526,18 @@ function animate(t){
     
     eatGhostCheck(); 
     
-    // Késleltetett újraéledési mechanizmus (ghostsToRespawn-t használ)
+    // Késleltetett újraéledési mechanizmus
     if (ghostsToRespawn > 0) {
         respawnCooldown++;
         if (respawnCooldown >= RESPAWN_TIME) {
             spawnGhost();
-            ghostsToRespawn--; // Csak a respawn queue csökken
+            ghostsToRespawn--; 
             respawnCooldown = 0;
         }
     }
     
     let isMoving = true;
-    const moveSpeed = PAC_MOVE_SPEED; 
+    const moveSpeed = PAC_MOVE_SPEED; // Dinamikus változó használata
     let targetAngle;
     
     let nearest=null,dist=Infinity;
@@ -510,6 +573,7 @@ function animate(t){
     if (isMoving && targetAngle !== undefined) {
         pac.angle = lerpAngle(pac.angle, targetAngle, 0.1 * dt); 
 
+        // DINAMIKUS SEBESSÉG ALKALMAZÁSA
         pac.x+=Math.cos(pac.angle)*moveSpeed*scale;
         pac.y+=Math.sin(pac.angle)*moveSpeed*scale;
     }
@@ -541,13 +605,15 @@ function init(){
   charIndex=0; lineIndex=0; finished=false;
   lastTime=performance.now();
   
-  // STATISZTIKAI ÉS RESPAWN VÁLTOZÓK NULLÁZÁSA
   ghostsToRespawn = 0; 
   totalGhostsEaten = 0;
   respawnCooldown = 0;
   
   statGhostsEaten.textContent = 0;
   statPointsEarned.textContent = 0;
+  
+  // Kezdő sebesség beállítása a csúszkákról
+  updateSpeeds();
 
   requestAnimationFrame(animate);
 }
