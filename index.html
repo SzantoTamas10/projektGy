@@ -7,19 +7,100 @@
 <style>
 html, body {
   height:100%; margin:0; background:#000; color:#ffd400;
-  font-family:system-ui,sans-serif; overflow:hidden;
+  font-family:system-ui,sans-serif; overflow-x:hidden; 
 }
-/* ÚJ RÉTEGZÉS: A text canvas a legfelső réteg, Pac-Man alá (a game canvas-ra) kerül a szöveg. */
+/* ÚJ STÍLUSOK: Menü és Gomb */
+#menu-button {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  cursor: pointer;
+  background: #ffd400;
+  color: #000;
+  padding: 8px 12px;
+  border: none;
+  font-weight: bold;
+  font-size: 16px;
+  border-radius: 4px;
+  transition: opacity 0.3s ease; 
+}
+/* Javítás: Gomb eltüntetése */
+#menu-button.hidden {
+    opacity: 0;
+    pointer-events: none; /* Kikapcsolja a kattintási eseményeket, amíg rejtve van */
+}
+
+
+#sidebar {
+  position: fixed;
+  top: 0;
+  left: -250px; /* Kezdetben elrejtve */
+  width: 250px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  border-right: 2px solid #28d1fa;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.8);
+  transition: left 0.3s ease;
+  padding: 20px;
+  padding-top: 40px; /* Hely az X gombnak */
+  box-sizing: border-box;
+  z-index: 999;
+  overflow-y: auto;
+}
+
+#sidebar.open {
+  left: 0; /* Megjelenítés */
+}
+
+/* Bezáró Gomb (X) */
+#close-button {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: none;
+  border: none;
+  color: #28d1fa;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 5px;
+  line-height: 1;
+}
+
+/* Egyszerű Óra (CANVAS helyett DIV) */
+#current-time {
+    color: #ffd400;
+    font-size: 18px;
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    border-bottom: 1px dashed #28d1fa44;
+}
+
+/* Statisztika Stílusok */
+#stats {
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.6;
+}
+#stats h2 {
+  color: #28d1fa;
+  font-size: 18px;
+  margin-top: 0;
+  border-bottom: 1px solid #28d1fa;
+  padding-bottom: 5px;
+}
+#stats strong {
+  color: #ffd400;
+  font-weight: bold;
+}
+
+
+/* Játékelemek stílusai */
 canvas {display:block; position:absolute; inset:0;}
 #wrap {position:fixed; inset:0;}
-#watch {
-  position:absolute;
-  top:10px;
-  left:10px;
-  width:clamp(150px, 25vw, 250px);
-  height:clamp(150px, 25vw, 250px);
-  border:1px solid #28d1fa;
-}
+
 #limited {
   position:absolute;
   top:10px;
@@ -48,40 +129,89 @@ canvas {display:block; position:absolute; inset:0;}
 <body>
 <div id="wrap">
   <canvas id="bg"></canvas>
-  <canvas id="text"></canvas> <canvas id="game"></canvas> <canvas id="watch" width="500" height="500"></canvas>
+  <canvas id="text"></canvas> 
+  <canvas id="game"></canvas> 
+  
   <div id="limited">limited edition</div>
   <div id="scoreboard">SCORE: 0</div>
+
+  <button id="menu-button">☰ Menü</button>
+  
+  <div id="sidebar">
+    <button id="close-button">X</button>
+
+    <div id="current-time"></div>
+    
+    <div id="stats">
+      <h2>STATISZTIKA</h2>
+      <p>Pac-Man sebessége: <strong id="stat-pac-speed"></strong> px/képkocka</p>
+      <p>Szellemek sebessége: <strong id="stat-ghost-speed"></strong> px/képkocka</p>
+      <p>Elkapott szellemek: <strong id="stat-ghosts-eaten">0</strong></p>
+      <p>Elnyelt pontszám: <strong id="stat-points-earned">0</strong></p>
+    </div>
+  </div>
 </div>
 
 <script>
 // === Alap ===
 const bgCanvas=document.getElementById('bg');
-const textCanvas=document.getElementById('text'); // ÚJ CANVAS
+const textCanvas=document.getElementById('text'); 
 const gameCanvas=document.getElementById('game');
 const bgCtx=bgCanvas.getContext('2d');
-const textCtx=textCanvas.getContext('2d'); // ÚJ CONTEXT
-const ctx=gameCanvas.getContext('2d'); // Pac-Man context
+const textCtx=textCanvas.getContext('2d'); 
+const ctx=gameCanvas.getContext('2d'); 
+
+// ÚJ DOM elemek
+const sidebar = document.getElementById('sidebar');
+const menuButton = document.getElementById('menu-button');
+const closeButton = document.getElementById('close-button'); 
+const currentTimeDisplay = document.getElementById('current-time'); 
+const statPacSpeed = document.getElementById('stat-pac-speed');
+const statGhostSpeed = document.getElementById('stat-ghost-speed');
+const statGhostsEaten = document.getElementById('stat-ghosts-eaten');
+const statPointsEarned = document.getElementById('stat-points-earned');
+
 let W,H,scale,fontSize,lineHeight;
 const lines=["404 error","page is not found"];
 let score=0;
 const scoreboard=document.getElementById('scoreboard');
 
-// ÚJ VÁLTOZÓK: A szellemek késleltetett újraéledéséhez
-let ghostsEaten = 0; // Megmutatja, hány szellem vár újraéledésre
+// Szellemek újraéledési változók (KÜLÖNVÁLASZTVA A STATISZTIKÁTÓL)
+let ghostsToRespawn = 0; // Ez kezeli a sorban álló újraéledéseket
+let totalGhostsEaten = 0; // Ez a statisztikai számláló (NEM nullázódik)
+
 let respawnCooldown = 0;
-const RESPAWN_TIME = 120; // 2 másodperc (60 kép/másodperc mellett)
+const RESPAWN_TIME = 120; // 2 másodperc 
 
-const GHOST_RADIUS = 12; // Szellem sugara
+const GHOST_RADIUS = 12; 
 
-// Pac-Man méretfaktorok:
 const PAC_R_WRITING_FACTOR = 0.45; 
 const PAC_R_FREE_SIZE = GHOST_RADIUS; 
+
+// Sebesség konstansok a statisztikához
+const PAC_MOVE_SPEED = 1.5; // MÓDOSÍTVA: Pac-Man lassabb lett
+const GHOST_MIN_SPEED = 0.5;
+const GHOST_MAX_SPEED = 1.5;
+
+
+// === Menü Kezelés (MÓDOSÍTVA) ===
+function toggleMenu() {
+  sidebar.classList.toggle('open');
+  // Megjeleníti / Elrejti a nyitó gombot
+  if (sidebar.classList.contains('open')) {
+    menuButton.classList.add('hidden'); 
+  } else {
+    menuButton.classList.remove('hidden');
+  }
+}
+
+menuButton.addEventListener('click', toggleMenu);
+closeButton.addEventListener('click', toggleMenu); 
 
 
 function resize(){
   const ratio=window.devicePixelRatio||1;
   W=window.innerWidth; H=window.innerHeight;
-  // VÁLTOZÁS: textCanvas hozzáadva
   [bgCanvas,textCanvas,gameCanvas].forEach(c=>{
     c.width=Math.floor(W*ratio);
     c.height=Math.floor(H*ratio);
@@ -89,11 +219,15 @@ function resize(){
     c.style.height=H+'px';
   });
   bgCtx.setTransform(ratio,0,0,ratio,0,0);
-  textCtx.setTransform(ratio,0,0,ratio,0,0); // ÚJ
+  textCtx.setTransform(ratio,0,0,ratio,0,0); 
   ctx.setTransform(ratio,0,0,ratio,0,0);
   scale=Math.min(W/900,H/400); 
   fontSize=Math.floor(Math.min(W*0.08,H*0.2));
   lineHeight=fontSize*1.2;
+  
+  // STATISZTIKA FRISSÍTÉS: Sebességek
+  statPacSpeed.textContent = (PAC_MOVE_SPEED * scale).toFixed(1);
+  statGhostSpeed.textContent = (((GHOST_MIN_SPEED + GHOST_MAX_SPEED) / 2) * scale).toFixed(1);
 }
 
 window.addEventListener('resize',()=>{resize();preparePositions();});
@@ -117,21 +251,20 @@ function spawnGhost(){
   const c=ghostColors[Math.floor(Math.random()*ghostColors.length)];
   let x = Math.random()*W;
   let y = Math.random()*H/2+50;
+  const vx = (Math.random()<0.5?-1:1)*(GHOST_MIN_SPEED + Math.random() * (GHOST_MAX_SPEED - GHOST_MIN_SPEED));
+  const vy = (Math.random()<0.5?-1:1)*(GHOST_MIN_SPEED + Math.random() * (GHOST_MAX_SPEED - GHOST_MIN_SPEED));
   ghosts.push(
-    {x,y,vx:(Math.random()<0.5?-1:1)*(0.5+Math.random()),vy:(Math.random()<0.5?-1:1)*(0.5+Math.random()),color:c}
+    {x,y,vx:vx,vy:vy,color:c}
   );
 }
-/**
- * Létrehoz egy megadott számú szellemet (alapértelmezésben 4-et).
- */
+
 function spawnGhosts(count = 4){ 
   ghosts=[];
   for(let i=0;i<count;i++) spawnGhost();
 }
-spawnGhosts(); // 4 szellemmel indul
+spawnGhosts(); 
 
 function drawGhost(g){
-  // GHOST_RADIUS (12) konstans használata
   bgCtx.beginPath();
   bgCtx.arc(g.x,g.y,GHOST_RADIUS,Math.PI,0,false);
   bgCtx.lineTo(g.x+GHOST_RADIUS,g.y+GHOST_RADIUS);
@@ -165,8 +298,8 @@ function updateBackground(){
     bgCtx.fill();
   });
   ghosts.forEach(g=>{
-    g.x+=g.vx; g.y+=g.vy;
-    // Szellemek pattannak a falról a teljes képernyőn
+    g.x+=g.vx * scale; 
+    g.y+=g.vy * scale;
     if(g.x<20||g.x>W-20) g.vx*=-1;
     if(g.y<20||g.y>H-20) g.vy*=-1;
     drawGhost(g);
@@ -178,18 +311,15 @@ const pac={x:0,y:0,r:0,vx:3,mouth:0,angle:0};
 let lastTime=0,charIndex=0,lineIndex=0,positions=[],finished=false;
 
 function preparePositions(){
-  // VÁLTOZÁS: textCtx használata
   textCtx.font=`300 ${fontSize}px system-ui, sans-serif`;
   textCtx.textBaseline='middle'; textCtx.textAlign='left';
   positions=[];
   const totalHeight=lineHeight*lines.length;
   lines.forEach((line,i)=>{
     let y=H/2-totalHeight/2+i*lineHeight+lineHeight/2;
-    // VÁLTOZÁS: textCtx használata
     let x=(W-textCtx.measureText(line).width)/2;
     let linePos=[];
     for(let j=0;j<line.length;j++){
-      // VÁLTOZÁS: textCtx használata
       let w=textCtx.measureText(line.slice(0,j+1)).width;
       linePos.push({char:line[j],x:x+w,y});
     }
@@ -198,7 +328,7 @@ function preparePositions(){
 }
 
 function drawText(){
-  textCtx.clearRect(0,0,W,H); // Törli az új szöveges vásznat
+  textCtx.clearRect(0,0,W,H); 
   textCtx.fillStyle='#ffd400';
   textCtx.font=`300 ${fontSize}px system-ui, sans-serif`;
   textCtx.textBaseline='middle'; textCtx.textAlign='left';
@@ -207,7 +337,6 @@ function drawText(){
     let x=(W-textCtx.measureText(line).width)/2;
     let y=H/2-totalHeight/2+i*lineHeight+lineHeight/2;
     let visible=positions[i].filter((p,idx)=> idx<(i<lineIndex?positions[i].length:(i===lineIndex?charIndex:0)));
-    // VÁLTOZÁS: textCtx használata
     textCtx.fillText(visible.map(p=>p.char).join(''),x,y);
   });
   textCtx.textAlign='left'; textCtx.textBaseline='top';
@@ -216,7 +345,6 @@ function drawText(){
 }
 
 function drawPac(x,y,r,angle){
-  // r itt a pac.r * scale, azaz a képernyő pixel méret
   const mouthOpen=0.25+0.15*Math.abs(Math.sin(pac.mouth));
   const start=angle+mouthOpen;
   const end=angle-mouthOpen;
@@ -239,6 +367,7 @@ function drawPac(x,y,r,angle){
 // === Pontszám popup ===
 let scorePopups = [];
 
+// MÓDOSÍTÁS: Számlálók frissítése
 function eatGhostCheck() {
   ghosts = ghosts.filter(g => {
     const pacR_scaled = pac.r * scale; 
@@ -246,11 +375,19 @@ function eatGhostCheck() {
     if (d < pacR_scaled + 10) {
       score+=100;
       scoreboard.textContent="SCORE: "+score;
+      
       scorePopups.push({x: g.x, y: g.y, text: "+100", life: 60});
       
-      // MÓDOSÍTÁS: Növeljük a megevett szellemek számlálóját
-      ghostsEaten++; 
-      return false; // Eltávolítjuk a szellemet a tömbből
+      // ÚJRAÉLEDÉSI SOR: növeljük, hogy spawnoljon egy új
+      ghostsToRespawn++; 
+      
+      // STATISZTIKA: növeljük a teljes elkapott szellemek számát (ez fut tovább)
+      totalGhostsEaten++; 
+      statGhostsEaten.textContent = totalGhostsEaten;
+      statPointsEarned.textContent = score;
+
+      respawnCooldown = 0; 
+      return false; 
     }
     return true; 
   });
@@ -275,15 +412,28 @@ function lerpAngle(a, b, t) {
   return a + diff * t;
 }
 
+// === Óra (Egyszerű Szöveges) ===
+function renderClockSimple() {
+  const now = new Date();
+  
+  const dateOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
+  const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+  
+  const dateStr = now.toLocaleDateString('hu-HU', dateOptions).replace(/\.$/, ''); 
+  const timeStr = now.toLocaleTimeString('hu-HU', timeOptions);
+
+  currentTimeDisplay.innerHTML = `<strong>${dateStr}</strong><br>${timeStr}`;
+}
+
+
 function animate(t){
   const dt=(t-lastTime)/16.666; lastTime=t;
   updateBackground();
-  ctx.clearRect(0,0,W,H); // Törli Pac-Man vásznát
-  drawText(); // A szöveg a text vászonra kerül
+  ctx.clearRect(0,0,W,H); 
+  drawText(); 
 
   pac.mouth+=0.1;
 
-  // Pac-Man sugár beállítása a fázisnak megfelelően
   const targetRadius = finished ? PAC_R_FREE_SIZE : (fontSize * PAC_R_WRITING_FACTOR);
   pac.r = targetRadius / scale; 
   
@@ -291,7 +441,7 @@ function animate(t){
   
   const maxW = W; 
   const maxH = H;
-  const pacR_scaled = pac.r * scale; // Pac-Man sugár a valós pixelméretben
+  const pacR_scaled = pac.r * scale; 
 
 
   if(!finished){
@@ -304,7 +454,6 @@ function animate(t){
       } else {
         lineIndex++; charIndex=0;
         if(lineIndex<positions.length){
-          // Kezdőpozíció
           pac.x=positions[lineIndex][0].x-START_OFFSET_X;
           pac.y=positions[lineIndex][0].y;
         } else finished=true;
@@ -314,18 +463,18 @@ function animate(t){
     
     eatGhostCheck(); 
     
-    // VÁLTOZÁS: Késleltetett újraéledési mechanizmus
-    if (ghostsEaten > 0) {
+    // Késleltetett újraéledési mechanizmus (ghostsToRespawn-t használ)
+    if (ghostsToRespawn > 0) {
         respawnCooldown++;
         if (respawnCooldown >= RESPAWN_TIME) {
             spawnGhost();
-            ghostsEaten--;
+            ghostsToRespawn--; // Csak a respawn queue csökken
             respawnCooldown = 0;
         }
     }
     
     let isMoving = true;
-    const moveSpeed = 2.2; 
+    const moveSpeed = PAC_MOVE_SPEED; 
     let targetAngle;
     
     let nearest=null,dist=Infinity;
@@ -335,16 +484,11 @@ function animate(t){
     });
 
     if(nearest){
-        // CHASE LOGIC (Szellemek üldözése)
         targetAngle=Math.atan2(nearest.y-pac.y,nearest.x-pac.x);
     } else {
-        // PATROL LOGIC (Ha nincs szellem, tartja az irányt, vagy pattan a falról)
-        // Ez a blokk csak akkor fut le, ha a ghosts tömb üres, vagy ha van szellem, de túl messze van.
-        
         const currentAngle = pac.angle;
         let newAngle = currentAngle;
 
-        // Visszapattanás logikája a teljes képernyőn
         if (pac.x <= pacR_scaled || pac.x >= maxW - pacR_scaled) {
             newAngle = Math.PI - currentAngle; 
         }
@@ -355,25 +499,22 @@ function animate(t){
         
         targetAngle = newAngle;
         
-        // Ha épp falnak ütközött, azonnali szögváltás.
         if (pac.x <= pacR_scaled || pac.x >= maxW - pacR_scaled || pac.y <= pacR_scaled || pac.y >= maxH - pacR_scaled) {
             pac.angle = targetAngle;
         } else {
-            // Ha nem ütközik falnak, megtartja az irányt.
             targetAngle = pac.angle; 
         }
     }
     
-    // Szög interpoláció (ívben fordulás) és mozgás
+    // Szög interpoláció és mozgás
     if (isMoving && targetAngle !== undefined) {
         pac.angle = lerpAngle(pac.angle, targetAngle, 0.1 * dt); 
 
-        // MOZGÁS
         pac.x+=Math.cos(pac.angle)*moveSpeed*scale;
         pac.y+=Math.sin(pac.angle)*moveSpeed*scale;
     }
     
-    // Határellenőrzés (a falon belül tartás)
+    // Határellenőrzés 
     if(pac.x<pacR_scaled) pac.x=pacR_scaled;
     if(pac.y<pacR_scaled) pac.y=pacR_scaled;
     if(pac.x>maxW-pacR_scaled) pac.x=maxW-pacR_scaled;
@@ -383,18 +524,16 @@ function animate(t){
   drawPopups();
   drawPac(pac.x,pac.y,pacR_scaled,pac.angle); 
 
-  renderClock();
+  renderClockSimple(); 
   requestAnimationFrame(animate);
 }
 
 function init(){
   preparePositions();
   
-  // Kezdő sugár beállítása
   const initialR = (fontSize * PAC_R_WRITING_FACTOR); 
   pac.r = initialR;
   
-  // Kezdő pozíció: A szöveg kezdőpontja
   pac.x=positions[0][0].x-50;
   pac.y=positions[0][0].y;
   
@@ -402,56 +541,17 @@ function init(){
   charIndex=0; lineIndex=0; finished=false;
   lastTime=performance.now();
   
-  // Reseteljük a számlálókat indításkor
-  ghostsEaten = 0;
+  // STATISZTIKAI ÉS RESPAWN VÁLTOZÓK NULLÁZÁSA
+  ghostsToRespawn = 0; 
+  totalGhostsEaten = 0;
   respawnCooldown = 0;
+  
+  statGhostsEaten.textContent = 0;
+  statPointsEarned.textContent = 0;
 
   requestAnimationFrame(animate);
 }
 preparePositions(); init();
-
-// === Óra ===
-const watchCanvas=document.getElementById('watch');
-const wctx=watchCanvas.getContext('2d');
-const watchSize=500,displaySize=250,factor=displaySize/watchSize;
-wctx.strokeStyle='#28d1fa'; wctx.lineWidth=17*factor; wctx.lineCap='round'; wctx.shadowColor='#28d1fa'; wctx.shadowBlur=15*factor;
-
-function degToRad(d){return d*Math.PI/180;}
-function renderClock(){
-  let now=new Date();
-  let today=now.toDateString();
-  let time=now.toLocaleTimeString();
-  let h=now.getHours(),m=now.getMinutes(),s=now.getSeconds(),ms=now.getMilliseconds();
-  
-  // Simított időszámítás
-  let sec=s+ms/1000;
-  let smoothM = m + sec / 60; // Simított perc
-  let smoothH = h + smoothM / 60; // Simított óra (24h)
-  
-  wctx.fillStyle='#000'; wctx.fillRect(0,0,watchSize,watchSize);
-  wctx.globalAlpha = 0.5;
-  
-  // Óra (24 órás skála)
-  wctx.beginPath(); wctx.arc(250,250,200,degToRad(270),degToRad(smoothH*15-90)); wctx.stroke();
-  
-  // Perc
-  wctx.beginPath(); wctx.arc(250,250,170,degToRad(270),degToRad(smoothM*6-90)); wctx.stroke();
-
-  // Másodperc
-  wctx.beginPath(); wctx.arc(250,250,140,degToRad(270),degToRad(sec*6-90)); wctx.stroke();
-  
-  wctx.globalAlpha = 1;
-  wctx.font=`bold 35px system-ui, sans-serif`; 
-  wctx.fillStyle='#28d1fa';
-  
-  // Középre igazítás
-  wctx.textAlign = 'center'; 
-  
-  wctx.fillText(today, 250, 235);
-  wctx.fillText(time, 250, 280);
-  
-  wctx.textAlign = 'left'; 
-}
 </script>
 </body>
 </html>
