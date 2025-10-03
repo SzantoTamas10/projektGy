@@ -28,14 +28,14 @@ html, body {
 /* Javítás: Gomb eltüntetése */
 #menu-button.hidden {
     opacity: 0;
-    pointer-events: none; /* Kikapcsolja a kattintási eseményeket, amíg rejtve van */
+    pointer-events: none; 
 }
 
 
 #sidebar {
   position: fixed;
   top: 0;
-  left: -250px; /* Kezdetben elrejtve */
+  left: -250px; 
   width: 250px;
   height: 100%;
   background: rgba(0, 0, 0, 0.95);
@@ -43,14 +43,14 @@ html, body {
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.8);
   transition: left 0.3s ease;
   padding: 20px;
-  padding-top: 40px; /* Hely az X gombnak */
+  padding-top: 40px; 
   box-sizing: border-box;
   z-index: 999;
   overflow-y: auto;
 }
 
 #sidebar.open {
-  left: 0; /* Megjelenítés */
+  left: 0; 
 }
 
 /* Bezáró Gomb (X) */
@@ -185,6 +185,10 @@ canvas {display:block; position:absolute; inset:0;}
         <p>Szellemek sebessége (átlag): <strong id="stat-ghost-speed"></strong> px/képkocka</p>
         <input type="range" id="ghost-speed-slider" min="0.5" max="3.0" step="0.1" value="1.0">
       </div>
+      
+      <p>Elkapott erőpelletek: <strong id="stat-pellets-eaten">0</strong></p>
+      
+      <div id="stat-pellet-history" style="font-size: 12px; max-height: 100px; overflow-y: auto; padding-left: 10px; border-left: 1px dotted #28d1fa;"></div>
 
       <p>Elkapott szellemek: <strong id="stat-ghosts-eaten">0</strong></p>
       <p>Elnyelt pontszám: <strong id="stat-points-earned">0</strong></p>
@@ -210,6 +214,8 @@ const statPacSpeed = document.getElementById('stat-pac-speed');
 const statGhostSpeed = document.getElementById('stat-ghost-speed');
 const statGhostsEaten = document.getElementById('stat-ghosts-eaten');
 const statPointsEarned = document.getElementById('stat-points-earned');
+const statPelletsEaten = document.getElementById('stat-pellets-eaten');
+const statPelletHistory = document.getElementById('stat-pellet-history'); // ÚJ
 
 // ÚJ CSÚSZKA DOM elemek
 const pacSpeedSlider = document.getElementById('pac-speed-slider');
@@ -223,6 +229,8 @@ const scoreboard=document.getElementById('scoreboard');
 // Szellemek újraéledési változók
 let ghostsToRespawn = 0; 
 let totalGhostsEaten = 0; 
+let totalPelletsEaten = 0; 
+let pelletHistory = []; // ÚJ TÖMB
 let respawnCooldown = 0;
 const RESPAWN_TIME = 120; // 2 másodperc 
 
@@ -231,20 +239,26 @@ const GHOST_RADIUS = 12;
 const PAC_R_WRITING_FACTOR = 0.45; 
 const PAC_R_FREE_SIZE = GHOST_RADIUS; 
 
-// Sebesség változók (most már DINAMIKUSAK)
-let PAC_MOVE_SPEED = 1.5; // Alapérték (lassítva)
-let GHOST_AVG_SPEED = 1.0; // Alapérték a csúszkáról
-const GHOST_SPEED_VARIATION = 0.5; // Fix eltérés az átlagtól (0.5 és 1.5 között mozognak)
+// Sebesség változók (dinamikusak)
+let PAC_MOVE_SPEED = 1.5; 
+let GHOST_AVG_SPEED = 1.0; 
+const GHOST_SPEED_VARIATION = 0.5; 
+
+// Fázisváltás konstansok
+const POWER_PELLET_COUNT = 5;
+const DEATH_TRAP_DURATION = 180; // 3 másodperc (kék fázis - Halálcsapda)
+const INVULNERABILITY_DURATION = 300; // 5 másodperc (piros fázis - Átjárás)
+
+let powerUpState = 'none'; // 'none', 'blue' (death), 'red' (pass)
+let powerUpTimer = 0;
+let pellets = []; 
 
 
 // === Sebességek Frissítése Csúszkákról ===
 function updateSpeeds() {
-  // 1. Pac-Man sebesség frissítése
   PAC_MOVE_SPEED = parseFloat(pacSpeedSlider.value);
-  // Sebesség kiírása statisztikába (scale-el szorozva, valós képernyő pixel/képkocka sebesség)
   statPacSpeed.textContent = (PAC_MOVE_SPEED * scale).toFixed(1);
   
-  // 2. Szellem sebesség frissítése (átlag)
   GHOST_AVG_SPEED = parseFloat(ghostSpeedSlider.value);
   statGhostSpeed.textContent = (GHOST_AVG_SPEED * scale).toFixed(1);
 }
@@ -284,7 +298,6 @@ function resize(){
   fontSize=Math.floor(Math.min(W*0.08,H*0.2));
   lineHeight=fontSize*1.2;
   
-  // STATISZTIKA FRISSÍTÉS: Sebességek újraszámolása a skálához
   updateSpeeds(); 
 }
 
@@ -299,23 +312,17 @@ let stars = Array.from({length:80},()=>({
   tw:Math.random()*100
 }));
 
-// === Szellemek (MÓDOSÍTVA) ===
+// === Szellemek és Fázisváltás ===
 const ghostColors=['#ff0000','#00ffde','#ffb8ff','#ffb847'];
 let ghosts=[];
-/**
- * Létrehoz egy új szellemet, véletlenszerű pozícióban, a dinamikus sebesség alapján.
- */
+
 function spawnGhost(){
   const c=ghostColors[Math.floor(Math.random()*ghostColors.length)];
   let x = Math.random()*W;
   let y = Math.random()*H/2+50;
   
-  // Dinamikus szellem sebesség tartomány számítása
   const minS = GHOST_AVG_SPEED - GHOST_SPEED_VARIATION;
   const maxS = GHOST_AVG_SPEED + GHOST_SPEED_VARIATION;
-  
-  // Sebesség generálása a dinamikus tartományban
-  // (biztosítjuk, hogy a sebesség minimum 0.1 legyen, ha a csúszka túl alacsony)
   const speed = Math.max(0.1, minS + Math.random() * (maxS - minS));
   
   const vx = (Math.random()<0.5?-1:1)*speed;
@@ -340,8 +347,31 @@ function drawGhost(g){
   bgCtx.lineTo(g.x-6,g.y+8);
   bgCtx.lineTo(g.x-GHOST_RADIUS,g.y+GHOST_RADIUS);
   bgCtx.closePath();
-  bgCtx.fillStyle=g.color;
+  
+  let fillColor = g.color;
+  const flashColor = '#fff'; 
+  
+  // Kék fázis: Halálcsapda (Kék-Fehér villogás)
+  if (powerUpState === 'blue') {
+    if (powerUpTimer % 20 < 10) { 
+      fillColor = '#28d1fa'; // Kék
+    } else {
+      fillColor = flashColor; // Fehér
+    }
+  } 
+  // Piros fázis: Átjárás (Piros-Fehér villogás)
+  else if (powerUpState === 'red') {
+    if (powerUpTimer % 20 < 10) { 
+      fillColor = '#ff0000'; // Piros
+    } else {
+      fillColor = flashColor; // Fehér
+    }
+  }
+
+  bgCtx.fillStyle=fillColor;
   bgCtx.fill();
+  
+  // Szemek
   bgCtx.fillStyle='#fff';
   bgCtx.beginPath();
   bgCtx.arc(g.x-5,g.y-2,3,0,Math.PI*2);
@@ -373,7 +403,7 @@ function updateBackground(){
   });
 }
 
-// === Pac-Man és szöveg (A mozgás itt használja a dinamikus PAC_MOVE_SPEED változót) ===
+// === Pac-Man és szöveg ===
 const pac={x:0,y:0,r:0,vx:3,mouth:0,angle:0}; 
 let lastTime=0,charIndex=0,lineIndex=0,positions=[],finished=false;
 
@@ -431,40 +461,175 @@ function drawPac(x,y,r,angle){
 }
 
 
+// === Pac-Man Pozíció Visszaállítása ("Halál") ===
+function resetPacmanPosition() {
+    const pacR_scaled = pac.r * scale; 
+    // Pac-Man a képernyő közepére kerül
+    pac.x = W / 2; 
+    pac.y = H / 2; 
+    pac.angle = 0;
+    
+    // Pontszám büntetés
+    score = Math.max(0, score - 50);
+    scoreboard.textContent="SCORE: "+score;
+    statPointsEarned.textContent = score;
+
+    scorePopups.push({x: pac.x, y: pac.y, text: "-50 (MEGHALT)", life: 90});
+}
+
+// === Ütközés és Evés Ellenőrzés ===
+function eatGhostCheck() {
+    const pacR_scaled = pac.r * scale; 
+
+    // 1. KÉK FÁZIS: HALÁLCSAPDA
+    if (powerUpState === 'blue') {
+        const collisionOccurred = ghosts.some(g => {
+            const d = Math.hypot(g.x - pac.x, g.y - pac.y);
+            return d < pacR_scaled + 10;
+        });
+
+        if (collisionOccurred) {
+            resetPacmanPosition();
+            powerUpTimer = 0; // Fázis azonnali befejezése
+            powerUpState = 'none'; 
+            return;
+        }
+    } 
+    
+    // 2. PIROS FÁZIS: ÁTJÁRÁS (Invulnerability)
+    else if (powerUpState === 'red') {
+        return; // Nem történik semmi ütközéskor
+    }
+    
+    // 3. NORMÁL FÁZIS (none): Pac-Man elkapja a szellemet (eredeti logika)
+    else if (powerUpState === 'none') {
+        ghosts = ghosts.filter(g => {
+            const d = Math.hypot(g.x - pac.x, g.y - pac.y);
+            if (d < pacR_scaled + 10) {
+              score+=100;
+              scoreboard.textContent="SCORE: "+score;
+              
+              scorePopups.push({x: g.x, y: g.y, text: "+100", life: 60});
+              
+              ghostsToRespawn++; 
+              totalGhostsEaten++; 
+              statGhostsEaten.textContent = totalGhostsEaten;
+              statPointsEarned.textContent = score;
+        
+              respawnCooldown = 0; 
+              return false; 
+            }
+            return true; 
+          });
+    }
+}
+
 // === Pontszám popup ===
 let scorePopups = [];
-
-function eatGhostCheck() {
-  ghosts = ghosts.filter(g => {
-    const pacR_scaled = pac.r * scale; 
-    const d = Math.hypot(g.x - pac.x, g.y - pac.y);
-    if (d < pacR_scaled + 10) {
-      score+=100;
-      scoreboard.textContent="SCORE: "+score;
-      
-      scorePopups.push({x: g.x, y: g.y, text: "+100", life: 60});
-      
-      ghostsToRespawn++; 
-      totalGhostsEaten++; 
-      statGhostsEaten.textContent = totalGhostsEaten;
-      statPointsEarned.textContent = score;
-
-      respawnCooldown = 0; 
-      return false; 
-    }
-    return true; 
-  });
-}
 
 function drawPopups() {
   ctx.font = `bold ${fontSize * 0.3}px system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   scorePopups.forEach(p => {
-    ctx.fillStyle = `rgba(255,212,0,${p.life/60})`;
-    ctx.fillText(p.text, p.x, p.y - (60 - p.life) * 0.5);
+    ctx.fillStyle = `rgba(255,212,0,${p.life/90})`;
+    ctx.fillText(p.text, p.x, p.y - (90 - p.life) * 0.5);
     p.life--;
   });
   scorePopups = scorePopups.filter(p => p.life > 0);
+}
+
+
+// === Pellet Történet Statisztika Frissítése ===
+function updatePelletHistoryStats() {
+    statPelletHistory.innerHTML = pelletHistory.map(item => 
+        `<p style="margin: 0; white-space: nowrap;">${item.index}. ${item.type} (${item.duration / 60}s)</p>`
+    ).join('');
+}
+
+
+// === Erőpellet (Power Pellet) logika ===
+
+/**
+ * Létrehoz 5 véletlenszerűen elhelyezett erőpelletet.
+ */
+function generatePellets() {
+  pellets = [];
+  const pelletRadius = 10;
+  const padding = 50;
+
+  for (let i = 0; i < POWER_PELLET_COUNT; i++) {
+    let x, y, safe;
+    do {
+      x = padding + Math.random() * (W - 2 * padding);
+      y = padding + Math.random() * (H - 2 * padding);
+      safe = true;
+
+      if (x > W / 2 - 300 && x < W / 2 + 300 && y > H / 2 - 100 && y < H / 2 + 100) {
+        safe = false;
+      }
+    } while (!safe);
+    
+    pellets.push({ x: x, y: y, r: pelletRadius });
+  }
+}
+
+function drawPellets() {
+  ctx.fillStyle = '#fff'; 
+  pellets.forEach(p => {
+    const flashSize = p.r + (Math.sin(performance.now() / 150) * 2);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, flashSize, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+/**
+ * Ellenőrzi, hogy Pac-Man elkapott-e egy erőpelletet, elindítja a ciklikus fázist és frissíti a számlálót.
+ */
+function checkPelletCollision() {
+  for (let i = pellets.length - 1; i >= 0; i--) {
+    const p = pellets[i];
+    const pacR_scaled = pac.r * scale; 
+    const d = Math.hypot(p.x - pac.x, p.y - p.y);
+
+    if (d < pacR_scaled + p.r) {
+      pellets.splice(i, 1);
+      
+      // *** STATISZTIKA FRISSÍTÉSE ***
+      totalPelletsEaten++; 
+      statPelletsEaten.textContent = totalPelletsEaten; 
+
+      // Fázis választása a sorszám alapján (ciklikus váltás)
+      const isOdd = totalPelletsEaten % 2 !== 0; 
+      
+      let phaseType, duration, typeText;
+
+      if (isOdd) {
+          // PÁRATLAN: Átjárás / Invulnerability (Piros-Fehér)
+          phaseType = 'red';
+          duration = INVULNERABILITY_DURATION;
+          typeText = 'Átjárás (Invulnerability)';
+      } else {
+          // PÁROS: Halálcsapda / Death Trap (Kék-Fehér)
+          phaseType = 'blue';
+          duration = DEATH_TRAP_DURATION;
+          typeText = 'Halálcsapda (Death Trap)';
+      }
+
+      powerUpState = phaseType;
+      powerUpTimer = duration; 
+
+      // Történet mentése és frissítése
+      pelletHistory.push({
+          index: totalPelletsEaten, 
+          type: typeText, 
+          duration: duration
+      });
+      updatePelletHistoryStats();
+      
+      break; 
+    }
+  }
 }
 
 // === Drift szög interpoláció ===
@@ -506,6 +671,13 @@ function animate(t){
   const maxH = H;
   const pacR_scaled = pac.r * scale; 
 
+  // Fázis időzítő kezelése
+  if (powerUpTimer > 0) {
+    powerUpTimer--;
+    if (powerUpTimer === 0) {
+      powerUpState = 'none'; // Vissza a normál állapotra
+    }
+  }
 
   if(!finished){
     // ... író animáció ...
@@ -524,6 +696,7 @@ function animate(t){
     }
   } else { // Szabad mozgás
     
+    checkPelletCollision(); 
     eatGhostCheck(); 
     
     // Késleltetett újraéledési mechanizmus
@@ -536,8 +709,8 @@ function animate(t){
         }
     }
     
-    let isMoving = true;
-    const moveSpeed = PAC_MOVE_SPEED; // Dinamikus változó használata
+    let moveSpeed = PAC_MOVE_SPEED; 
+    
     let targetAngle;
     
     let nearest=null,dist=Infinity;
@@ -570,10 +743,9 @@ function animate(t){
     }
     
     // Szög interpoláció és mozgás
-    if (isMoving && targetAngle !== undefined) {
+    if (targetAngle !== undefined) {
         pac.angle = lerpAngle(pac.angle, targetAngle, 0.1 * dt); 
 
-        // DINAMIKUS SEBESSÉG ALKALMAZÁSA
         pac.x+=Math.cos(pac.angle)*moveSpeed*scale;
         pac.y+=Math.sin(pac.angle)*moveSpeed*scale;
     }
@@ -586,6 +758,7 @@ function animate(t){
   }
 
   drawPopups();
+  drawPellets(); 
   drawPac(pac.x,pac.y,pacR_scaled,pac.angle); 
 
   renderClockSimple(); 
@@ -607,13 +780,20 @@ function init(){
   
   ghostsToRespawn = 0; 
   totalGhostsEaten = 0;
+  totalPelletsEaten = 0; 
+  pelletHistory = []; // Történet nullázása
   respawnCooldown = 0;
+  
+  powerUpState = 'none';
+  powerUpTimer = 0;
   
   statGhostsEaten.textContent = 0;
   statPointsEarned.textContent = 0;
+  statPelletsEaten.textContent = 0; 
+  statPelletHistory.innerHTML = ''; // Történet kijelző nullázása
   
-  // Kezdő sebesség beállítása a csúszkákról
   updateSpeeds();
+  generatePellets();
 
   requestAnimationFrame(animate);
 }
