@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Konzolos chat — Terminal v3 (WS + Menü + Enter)</title>
+<style>
+:root{
+  --bg:#071013; --panel:#0b1a1b; --text:#9ef08a; --muted:#7aa68a; --prompt:#4ad974;
+}
+html,body{margin:0;padding:0;height:100%;font-family:ui-monospace,monospace;background:var(--bg);color:var(--text)}
+.app{display:flex;flex-direction:column;height:100vh}
+header{display:flex;align-items:center;gap:12px;padding:12px}
+.logo{width:46px;height:46px;border-radius:6px;background:linear-gradient(135deg,#06363b,#0b3b2f);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.logo b{color:#b8ffda;font-size:18px}
+h1{margin:0;font-size:18px}
+p.subtitle{margin:0;font-size:13px;color:var(--muted)}
+.main-content{display:flex;flex:1;gap:12px;padding:12px;flex-wrap:wrap}
+.chat-panel{flex:1;min-width:280px;background:var(--panel);border-radius:8px;padding:12px;display:flex;flex-direction:column}
+.terminal-panel{width:320px;min-width:200px;background:var(--panel);border-radius:8px;padding:12px;display:flex;flex-direction:column}
+.messages{flex:1;display:flex;flex-direction:column;gap:6px;overflow:auto;padding-bottom:6px}
+.line{white-space:pre-wrap;word-break:break-word;font-size:13px}
+.msg-meta{color:var(--muted);font-size:12px;margin-bottom:4px}
+.input-row{display:flex;align-items:center;gap:6px;margin-top:6px;position:relative}
+.prompt{min-width:78px;color:var(--prompt);font-weight:700}
+#cmd,#cmd2{flex:1;background:transparent;border:1px solid rgba(255,255,255,.03);outline:none;padding:6px 8px;border-radius:6px;color:var(--text);font-size:13px}
+#cmd::placeholder,#cmd2::placeholder{color:rgba(158,240,138,.3)}
+.btn{padding:6px 8px;border-radius:6px;border:none;background:#022b2b;color:var(--text);cursor:pointer}
+.btn.secondary{background:transparent;border:1px solid rgba(255,255,255,.03);color:var(--muted)}
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:40}
+.menu{background:#071f20;border-radius:10px;padding:20px;width:min(760px,96%);box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.menu h2{margin:0 0 8px 0}
+.menu p{margin:0 0 12px 0;color:var(--muted)}
+.menu .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.menu input[type=text]{padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.04);background:transparent;color:var(--text);min-width:120px}
+.theme-btn{padding:4px 6px;cursor:pointer;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--text)}
+.kv{color:var(--muted);font-size:13px}
+.hint{color:var(--muted);font-size:12px;margin-top:8px}
+.autocomplete{position:absolute;background:var(--panel);border:1px solid rgba(255,255,255,.04);padding:6px;border-radius:6px;max-height:140px;overflow:auto;z-index:60}
+.autocomplete div{padding:6px;border-radius:4px;cursor:pointer}
+.autocomplete div:hover{background:rgba(255,255,255,.02)}
+.uusers{color:var(--muted);font-size:13px;margin-left:12px}
+svg.tracert { max-width:100%; height:80px; display:block; margin-top:6px; background:rgba(255,255,255,0.01); border-radius:6px; }
+@media(max-width:820px){.main-content{flex-direction:column}.terminal-panel{width:100%;min-width:0}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><b>KS</b></div>
+    <div>
+      <h1>Konzolos chat — Terminal v3</h1>
+      <p class="subtitle">WebSocket többfelhasználós demo · Menü · Enter küldés</p>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <div class="uusers" id="userCount">Users: 0</div>
+      <button class="btn" id="exportBtn">Export .txt</button>
+      <button class="btn secondary" id="openMenuBtn">Menu</button>
+    </div>
+  </header>
+
+  <div class="main-content">
+    <div class="chat-panel">
+      <div class="messages" id="messages" aria-live="polite"></div>
+      <div class="input-row" style="position:relative">
+        <div class="prompt" id="promptLabel">guest@web</div>
+        <input id="cmd" placeholder="Írj valamit... (Enter küld)" autocomplete="off">
+        <div id="autocomplete" class="autocomplete" style="display:none"></div>
+        <button class="btn secondary" id="clearBtn">Töröl</button>
+      </div>
+    </div>
+
+    <div class="terminal-panel">
+      <div class="messages" id="messages2"></div>
+      <div class="input-row">
+        <div class="prompt">term@web</div>
+        <input id="cmd2" placeholder="Parancs... (Enter)" autocomplete="off">
+      </div>
+      <div style="margin-top:8px;color:var(--muted);font-size:12px">
+        <div>Uptime: <span id="uptime">0s</span></div>
+        <div class="kv">Parancs történet: ↑/↓ · Autocomplete: Tab</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay" style="display:flex">
+    <div class="menu">
+      <h2>Konzolos chat — Kezdőmenü</h2>
+      <p>Adj meg felhasználónevet, vagy válassz témát:</p>
+
+      <div class="row">
+        <input id="nameInput" type="text" placeholder="Felhasználónév">
+        <button id="setNameBtn">Mentés</button>
+        <button id="anonBtn">Név nélkül</button>
+        <button id="randomBtn">Véletlen név</button>
+      </div>
+
+      <div class="row">
+        <button id="startBtn">Start</button>
+        <button id="demoBtn">Demo: ipconfig</button>
+        <button id="helpBtn">Parancslista</button>
+      </div>
+
+      <div class="row">
+        <span>Téma:</span>
+        <button class="theme-btn" data-theme="retro">Retro</button>
+        <button class="theme-btn" data-theme="light">Világos</button>
+        <button class="theme-btn" data-theme="blue">Kék</button>
+        <button class="theme-btn" data-theme="neon">Neon</button>
+        <button class="theme-btn" data-theme="matrix">Matrix</button>
+      </div>
+
+      <div class="row">
+        <button id="refreshIPBtn">IP-adatok frissítése</button>
+        <button id="clearLogsBtn">Napló törlése</button>
+      </div>
+
+      <p class="hint">Megjegyzés: /weather parancs API kulcs nélkül működik Open-Meteo segítségével.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const messages = document.getElementById('messages');
+const messages2 = document.getElementById('messages2');
+const cmd = document.getElementById('cmd');
+const cmd2 = document.getElementById('cmd2');
+const promptLabel = document.getElementById('promptLabel');
+const overlay = document.getElementById('overlay');
+const nameInput = document.getElementById('nameInput');
+const autocompleteEl = document.getElementById('autocomplete');
+const userCount = document.getElementById('userCount');
+const exportBtn = document.getElementById('exportBtn');
+
+let startTime = Date.now();
+let commandHistory = [], historyIndex = 0;
+let logging = false;
+const COMMANDS = ['help','menu','clear','cls','setname','whoami','ipconfig','ping','tracert','weather','uptime','sysinfo','export','history','echo','save','load'];
+
+function push(target, msg){
+  const d = document.createElement('div'); d.className = 'line'; d.textContent = msg;
+  target.appendChild(d); target.scrollTop = target.scrollHeight;
+  if(logging) saveLogEntry(msg);
+}
+function appendChat(name, text, time){
+  const wrap = document.createElement('div');
+  const meta = document.createElement('div'); meta.className = 'msg-meta'; meta.textContent = `${name} — ${time}`;
+  const line = document.createElement('div'); line.className = 'line'; line.textContent = text;
+  wrap.appendChild(meta); wrap.appendChild(line);
+  messages.appendChild(wrap);
+  messages.scrollTop = messages.scrollHeight;
+}
+function appendSystem(text){
+  const d = document.createElement('div'); d.className='line'; d.textContent = '[system] ' + text;
+  messages.appendChild(d); messages.scrollTop = messages.scrollHeight;
+}
+function timestamp(){ return new Date().toLocaleTimeString(); }
+
+function saveLogEntry(line){
+  const logs = JSON.parse(localStorage.getItem('chat_logs_v3')||'[]');
+  logs.push({t:Date.now(),line});
+  localStorage.setItem('chat_logs_v3', JSON.stringify(logs));
+}
+function exportLogs(){
+  const logs = JSON.parse(localStorage.getItem('chat_logs_v3')||'[]');
+  const txt = logs.map(l => `[${new Date(l.t).toLocaleString()}] ${l.line}`).join('\n');
+  const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'chat-logs-v3.txt'; a.click(); URL.revokeObjectURL(url);
+}
+
+function getName(){ return localStorage.getItem('username_v3') || 'guest'; }
+function setName(n){ localStorage.setItem('username_v3', n); promptLabel.textContent = `${n}@web`; }
+setName(getName());
+
+function setTheme(theme){
+  if(theme==='retro'){ document.body.style.setProperty('--bg','#071013'); document.body.style.setProperty('--panel','#0b1a1b'); document.body.style.setProperty('--text','#9ef08a'); document.body.style.setProperty('--muted','#7aa68a'); document.body.style.setProperty('--prompt','#4ad974'); }
+  else if(theme==='light'){ document.body.style.setProperty('--bg','#f0f0f0'); document.body.style.setProperty('--panel','#ffffff'); document.body.style.setProperty('--text','#111'); document.body.style.setProperty('--muted','#6b6b6b'); document.body.style.setProperty('--prompt','#0b6b3b'); }
+  else if(theme==='blue'){ document.body.style.setProperty('--bg','#001022'); document.body.style.setProperty('--panel','#002244'); document.body.style.setProperty('--text','#66ccff'); document.body.style.setProperty('--muted','#4aa3bf'); document.body.style.setProperty('--prompt','#66ddff'); }
+  else if(theme==='neon'){ document.body.style.setProperty('--bg','#040004'); document.body.style.setProperty('--panel','#0a0010'); document.body.style.setProperty('--text','#ff6aff'); document.body.style.setProperty('--muted','#ff93ff'); document.body.style.setProperty('--prompt','#ff2d95'); }
+  else if(theme==='matrix'){ document.body.style.setProperty('--bg','#000'); document.body.style.setProperty('--panel','#001100'); document.body.style.setProperty('--text','#66ff66'); document.body.style.setProperty('--muted','#2ecc2e'); document.body.style.setProperty('--prompt','#33cc33'); }
+  localStorage.setItem('theme_v3', theme);
+}
+setTheme(localStorage.getItem('theme_v3') || 'retro');
+
+function updateUptime(){ const s = Math.floor((Date.now()-startTime)/1000); const el = document.getElementById('uptime'); if(!el) return; if(s<60) el.textContent = s+'s'; else if(s<3600) el.textContent = Math.floor(s/60)+'m '+(s%60)+'s'; else el.textContent = Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m'; }
+setInterval(updateUptime,1000);
+
+// ---------- Autocomplete & History ----------
+function showAutocomplete(prefix){
+  const list = COMMANDS.filter(c => c.startsWith(prefix));
+  if(!list.length){ autocompleteEl.style.display='none'; return; }
+  autocompleteEl.innerHTML = '';
+  list.forEach(i => { const el = document.createElement('div'); el.textContent = i; el.onclick = ()=>{ cmd.value = '/' + i + ' '; cmd.focus(); autocompleteEl.style.display='none'; }; autocompleteEl.appendChild(el);});
+  autocompleteEl.style.display = 'block';
+  const rect = cmd.getBoundingClientRect();
+  autocompleteEl.style.left = (rect.left + window.scrollX) + 'px';
+  autocompleteEl.style.top = (rect.bottom + window.scrollY) + 'px';
+}
+cmd.addEventListener('input', e => { const v = cmd.value.trim(); if(!v || v[0] !== '/') { autocompleteEl.style.display='none'; return; } showAutocomplete(v.slice(1)); });
+cmd.addEventListener('keydown', e => {
+  if(e.key === 'Tab'){ e.preventDefault(); const v = cmd.value.trim(); if(v.startsWith('/')) { const list = COMMANDS.filter(c=>c.startsWith(v.slice(1))); if(list[0]) cmd.value = '/' + list[0] + ' '; } }
+  if(e.key === 'ArrowUp'){ e.preventDefault(); if(commandHistory.length){ historyIndex = Math.max(0, historyIndex-1); cmd.value = commandHistory[historyIndex]; } }
+  if(e.key === 'ArrowDown'){ e.preventDefault(); if(commandHistory.length){ historyIndex = Math.min(commandHistory.length-1, historyIndex+1); cmd.value = commandHistory[historyIndex]; } }
+});
+cmd2.addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); handleInput(cmd2.value.trim(), messages2); cmd2.value = ''; }
+});
+
+document.addEventListener('click', e => { if(!autocompleteEl.contains(e.target) && e.target !== cmd) autocompleteEl.style.display='none'; });
+
+// ---------- /weather parancs ----------
+async function cmdWeather(city, target){
+  if(!city){ push(target, 'Használat: /weather <város>'); return; }
+
+  const cities = {
+    budapest: { lat:47.4979, lon:19.0402 },
+    debrecen: { lat:47.5316, lon:21.6273 },
+    szeged: { lat:46.253, lon:20.1414 },
+    pecs: { lat:46.0727, lon:18.2323 },
+    miskolc: { lat:48.1031, lon:20.7913 },
+  };
+
+  const c = cities[city.toLowerCase()];
+  if(!c){ 
+    push(target, 'Ismeretlen város, próbáld: budapest, szeged, pecs, debrecen, miskolc'); 
+    return; 
+  }
+
+  push(target, 'Lekérdezés: ' + city + ' (Open-Meteo)');
+  try{
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current_weather=true`);
+    const j = await res.json();
+    const w = j.current_weather;
+    push(target, `${city.charAt(0).toUpperCase()+city.slice(1)}: ${w.temperature}°C, Weather code: ${w.weathercode}, Szél: ${w.windspeed} km/h`);
+  }catch(err){
+    push(target, 'Hiba az Open-Meteo lekérdezésben: ' + err.message);
+  }
+}
+
+// ---------- Sysinfo ----------
+async function cmdSysinfo(target){
+  push(target, 'Navigator: ' + navigator.userAgent);
+  push(target, 'Platform: ' + navigator.platform);
+  push(target, 'Online: ' + navigator.onLine);
+}
+
+// ---------- Command processor ----------
+async function processCmd(cmdline, target){
+  const trimmed = (cmdline||'').trim();
+  if(!trimmed) return;
+  commandHistory.push(trimmed);
+  historyIndex = commandHistory.length;
+
+  if(trimmed.startsWith('/')){
+    const parts = trimmed.slice(1).split(' ');
+    const c = parts.shift().toLowerCase();
+    const args = parts;
+    push(target, getName() + '> ' + trimmed);
+    switch(c){
+      case 'help': push(target,'/menu — főmenü'); push(target,'/setname <név> — név beállítása'); push(target,'/whoami'); push(target,'/ipconfig'); push(target,'/ping <host>'); push(target,'/tracert <host>'); push(target,'/weather <város>'); push(target,'/uptime'); break;
+      case 'menu': overlay.style.display='flex'; break;
+      case 'clear': case 'cls': target.innerHTML=''; break;
+      case 'setname': if(args.length){ setName(args.join(' ')); push(target,'Név beállítva: '+getName()); } else push(target,'Használat: /setname <név>'); break;
+      case 'whoami': push(target,getName()); break;
+      case 'uptime': push(target, 'Uptime: ' + document.getElementById('uptime').textContent); break;
+      case 'weather': await cmdWeather(args.join(' '), target); break;
+      case 'sysinfo': await cmdSysinfo(target); break;
+      default: push(target,'Ismeretlen parancs. /help'); break;
+    }
+  } else {
+    push(target,getName() + '> ' + trimmed);
+  }
+}
+
+function handleInput(input, target){ processCmd(input, target); }
+
+// ---------- Buttons ----------
+document.getElementById('startBtn')?.addEventListener('click', ()=>{ overlay.style.display='none'; });
+document.getElementById('openMenuBtn')?.addEventListener('click', ()=>{ overlay.style.display='flex'; });
+document.getElementById('setNameBtn')?.addEventListener('click', ()=>{ if(nameInput.value) setName(nameInput.value); overlay.style.display='none'; });
+document.getElementById('anonBtn')?.addEventListener('click', ()=>{ setName('guest'); overlay.style.display='none'; });
+document.getElementById('randomBtn')?.addEventListener('click', ()=>{ setName('user'+Math.floor(Math.random()*1000)); overlay.style.display='none'; });
+document.querySelectorAll('.theme-btn')?.forEach(btn=>btn.addEventListener('click', ()=>setTheme(btn.dataset.theme)));
+exportBtn?.addEventListener('click', exportLogs);
+document.getElementById('clearBtn')?.addEventListener('click', ()=>{ messages.innerHTML=''; push(messages,'Képernyő törölve.'); });
+
+// ---------- Enter küldés ----------
+cmd.addEventListener('keypress', e => { if(e.key==='Enter'){ e.preventDefault(); const val=cmd.value.trim(); cmd.value=''; processCmd(val,messages); } });
+cmd2.addEventListener('keypress', e => { if(e.key==='Enter'){ e.preventDefault(); const val=cmd2.value.trim(); cmd2.value=''; processCmd(val,messages2); } });
+
+// ---------- Welcome ----------
+push(messages, 'Konzolos chat v3 betöltve. Üdv ' + getName() + '. /help a parancsokhoz.');
+nameInput.value = getName();
+</script>
+</body>
+</html>
