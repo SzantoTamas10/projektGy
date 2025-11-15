@@ -1,803 +1,219 @@
 <!doctype html>
 <html lang="hu">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>404 — Pac-Man írja</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Digitális Kert — Projektek (Canvas virágok)</title>
 <style>
-html, body {
-  height:100%; margin:0; background:#000; color:#ffd400;
-  font-family:system-ui,sans-serif; overflow-x:hidden; 
+:root{
+  --bg-dark:#050508;
+  --bg-darkgreen:#071205;
+  --panel:rgba(255,255,255,0.04);
+  --text-light:#E6FFE6;
+  --muted:#9aa0a6;
+  --accent:#6AA84F;
 }
-/* ÚJ STÍLUSOK: Menü és Gomb */
-#menu-button {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  z-index: 1000;
-  cursor: pointer;
-  background: #ffd400;
-  color: #000;
-  padding: 8px 12px;
-  border: none;
-  font-weight: bold;
-  font-size: 16px;
-  border-radius: 4px;
-  transition: opacity 0.3s ease; 
-}
-/* Javítás: Gomb eltüntetése */
-#menu-button.hidden {
-    opacity: 0;
-    pointer-events: none; 
-}
-
-
-#sidebar {
-  position: fixed;
-  top: 0;
-  left: -250px; 
-  width: 250px;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.95);
-  border-right: 2px solid #28d1fa;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.8);
-  transition: left 0.3s ease;
-  padding: 20px;
-  padding-top: 40px; 
-  box-sizing: border-box;
-  z-index: 999;
-  overflow-y: auto;
-}
-
-#sidebar.open {
-  left: 0; 
-}
-
-/* Bezáró Gomb (X) */
-#close-button {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  background: none;
-  border: none;
-  color: #28d1fa;
-  font-size: 24px;
-  font-weight: bold;
-  cursor: pointer;
-  padding: 5px;
-  line-height: 1;
-}
-
-/* Egyszerű Óra (DIV) */
-#current-time {
-    color: #ffd400;
-    font-size: 18px;
-    text-align: center;
-    margin-bottom: 20px;
-    padding: 10px 0;
-    border-bottom: 1px dashed #28d1fa44;
-}
-
-/* Statisztika Stílusok */
-#stats {
-  color: #fff;
-  font-size: 14px;
-  line-height: 1.6;
-}
-#stats h2 {
-  color: #28d1fa;
-  font-size: 18px;
-  margin-top: 0;
-  border-bottom: 1px solid #28d1fa;
-  padding-bottom: 5px;
-}
-#stats strong {
-  color: #ffd400;
-  font-weight: bold;
-}
-/* ÚJ STÍLUS: Csúszkák */
-.speed-control {
-    width: 100%;
-    margin-bottom: 15px;
-}
-.speed-control p {
-    margin-bottom: 5px;
-}
-#pac-speed-slider, #ghost-speed-slider {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 8px;
-    background: #555;
-    outline: none;
-    opacity: 0.7;
-    transition: opacity .2s;
-    border-radius: 4px;
-}
-#pac-speed-slider:hover, #ghost-speed-slider:hover {
-    opacity: 1;
-}
-#pac-speed-slider::-webkit-slider-thumb, #ghost-speed-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 15px;
-    height: 15px;
-    border-radius: 50%; 
-    background: #ffd400;
-    cursor: pointer;
-}
-
-
-/* Játékelemek stílusai */
-canvas {display:block; position:absolute; inset:0;}
-#wrap {position:fixed; inset:0;}
-
-#limited {
-  position:absolute;
-  top:10px;
-  right:10px;
-  color:#28d1fa;
-  font-family:Comic Sans MS, cursive;
-  font-weight:bold;
-  font-size:clamp(12px, 2vw, 18px);
-}
-/* Reszponzív tipográfia */
-.error-text {
-  font-size: clamp(1rem, 4vw, 2.5rem);
-  font-weight: 300;
-}
-#scoreboard {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  color: #ffd400;
-  font-family: system-ui, sans-serif;
-  font-size: clamp(14px, 3vw, 22px);
-  font-weight: bold;
-}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:var(--bg-dark);color:var(--text-light);overflow:hidden; cursor: default;}
+.app { display:flex; height:100vh; width:100vw; }
+.garden-wrap { position:relative; flex:1; min-width:320px; overflow:hidden; }
+canvas#gardenCanvas { display:block; width:100%; height:100%; background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent); cursor: pointer; }
+header.appbar{ position:absolute; left:12px; top:12px; right:12px; display:flex; gap:12px; align-items:center; z-index:30; pointer-events:auto; }
+.brand { font-weight:700; display:flex; gap:10px; align-items:center }
+.logo { width:42px;height:42px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#6c8ed5);display:flex;align-items:center;justify-content:center;font-weight:700 }
+.controls { margin-left:auto; display:flex; gap:8px; align-items:center }
+select, button, input[type="text"], input[type="password"]{ background:var(--panel); color:var(--text-light); border:1px solid rgba(255,255,255,0.03); padding:8px 10px; border-radius:8px; }
+button { cursor:pointer; font-weight:600 }
+aside.panel { width:380px; max-width:40%; min-width:300px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-left: 1px solid rgba(255,255,255,0.03); padding:18px; box-sizing:border-box; overflow:auto; }
+h2{margin:0 0 8px 0}
+.meta{color:var(--muted); font-size:13px; margin-bottom:12px}
+.tooltip { position:fixed; pointer-events:none; z-index:80; padding:8px 10px; border-radius:8px; background:rgba(0,0,0,0.7); color:var(--text-light); font-size:13px; box-shadow:0 6px 18px rgba(0,0,0,0.6); display:none; }
+select#themeSelect option { color:#000; background:#fff; }
+.login-popup { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);padding:30px;border-radius:12px;display:none;z-index:100;}
+.login-popup input { display:block;margin:8px 0;width:200px; }
+.login-popup button { width:100%; }
 </style>
 </head>
 <body>
-<div id="wrap">
-  <canvas id="bg"></canvas>
-  <canvas id="text"></canvas> 
-  <canvas id="game"></canvas> 
-  
-  <div id="limited">limited edition</div>
-  <div id="scoreboard">SCORE: 0</div>
 
-  <button id="menu-button">☰ Menü</button>
-  
-  <div id="sidebar">
-    <button id="close-button">X</button>
+<div class="app">
+  <div class="garden-wrap">
+    <canvas id="gardenCanvas" aria-label="Digitális kert"></canvas>
 
-    <div id="current-time"></div>
-    
-    <div id="stats">
-      <h2>STATISZTIKA</h2>
-      
-      <div class="speed-control">
-        <p>Pac-Man sebessége: <strong id="stat-pac-speed"></strong> px/képkocka</p>
-        <input type="range" id="pac-speed-slider" min="0.5" max="5.0" step="0.1" value="1.5">
+    <header class="appbar">
+      <div class="brand">
+        <div class="logo">🌱</div>
+        <div>Digitális Kert — Projektek</div>
       </div>
-
-      <div class="speed-control">
-        <p>Szellemek sebessége (átlag): <strong id="stat-ghost-speed"></strong> px/képkocka</p>
-        <input type="range" id="ghost-speed-slider" min="0.5" max="3.0" step="0.1" value="1.0">
+      <div class="controls">
+        <label style="color:var(--muted); font-size:13px">Téma:</label>
+        <select id="themeSelect" title="Téma">
+          <option value="dark">Sötét</option>
+          <option value="darkgreen">Sötét zöld</option>
+        </select>
+        <input id="projectInput" type="text" placeholder="Új projekt neve..." style="min-width:200px; display:none"/>
+        <input id="projectLink" type="text" placeholder="Projekt link..." style="min-width:200px; display:none"/>
+        <button id="addProjectBtn" style="display:none">Hozzáadás</button>
+        <button id="loginBtn">Bejelentkezés</button>
       </div>
-      
-      <p>Elkapott erőpelletek: <strong id="stat-pellets-eaten">0</strong></p>
-      
-      <div id="stat-pellet-history" style="font-size: 12px; max-height: 100px; overflow-y: auto; padding-left: 10px; border-left: 1px dotted #28d1fa;"></div>
-
-      <p>Elkapott szellemek: <strong id="stat-ghosts-eaten">0</strong></p>
-      <p>Elnyelt pontszám: <strong id="stat-points-earned">0</strong></p>
-      <p><a href="terminal.html">Terminal</a></p>
-    </div>
+    </header>
   </div>
+
+  <aside class="panel" id="controlPanel">
+    <h2>Vezérlőpanel</h2>
+    <div class="meta">Kattints a virágokra, hogy az információ megjelenjen.</div>
+    <div style="margin-top:12px;">
+      <input id="msgInput" type="text" placeholder="Írd ide az üzenetet..." style="width:70%;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text-light);"/>
+      <button id="sendBtn" style="padding:6px 10px;border-radius:6px;background:var(--accent);border:none;color:white;cursor:pointer;">Küldés</button>
+    </div>
+    <div id="panelInfo" class="meta" style="margin-top:12px;">A virágokra kattintva jelenik meg a részlete.</div>
+  </aside>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+
+<div id="loginPopup" class="login-popup">
+  <h3>Admin Bejelentkezés</h3>
+  <input type="text" id="username" placeholder="Felhasználó"/>
+  <input type="password" id="password" placeholder="Jelszó"/>
+  <button id="doLoginBtn">Bejelentkezés</button>
 </div>
 
 <script>
-// === Alap ===
-const bgCanvas=document.getElementById('bg');
-const textCanvas=document.getElementById('text'); 
-const gameCanvas=document.getElementById('game');
-const bgCtx=bgCanvas.getContext('2d');
-const textCtx=textCanvas.getContext('2d'); 
-const ctx=gameCanvas.getContext('2d'); 
+// Canvas setup
+const canvas = document.getElementById('gardenCanvas');
+const ctx = canvas.getContext('2d');
+function resizeCanvas(){ canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; }
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
-// ÚJ DOM elemek
-const sidebar = document.getElementById('sidebar');
-const menuButton = document.getElementById('menu-button');
-const closeButton = document.getElementById('close-button'); 
-const currentTimeDisplay = document.getElementById('current-time'); 
-const statPacSpeed = document.getElementById('stat-pac-speed');
-const statGhostSpeed = document.getElementById('stat-ghost-speed');
-const statGhostsEaten = document.getElementById('stat-ghosts-eaten');
-const statPointsEarned = document.getElementById('stat-points-earned');
-const statPelletsEaten = document.getElementById('stat-pellets-eaten');
-const statPelletHistory = document.getElementById('stat-pellet-history'); // ÚJ
+// Virág adatok (3 virág alap)
+let flowers = [
+  {id:1,x:0.25,y:0.4,scale:1,hue:60,title:'Projekt 1',desc:'Személyes portfólió',petals:6,link:'https://example.com/1'},
+  {id:2,x:0.5,y:0.6,scale:1,hue:180,title:'Projekt 2',desc:'Mini játék',petals:7,link:'https://example.com/2'},
+  {id:3,x:0.75,y:0.35,scale:1,hue:300,title:'Projekt 3',desc:'Blog',petals:5,link:'https://example.com/3'}
+];
 
-// ÚJ CSÚSZKA DOM elemek
-const pacSpeedSlider = document.getElementById('pac-speed-slider');
-const ghostSpeedSlider = document.getElementById('ghost-speed-slider');
-
-let W,H,scale,fontSize,lineHeight;
-const lines=["404 error","page is not found"];
-let score=0;
-const scoreboard=document.getElementById('scoreboard');
-
-// Szellemek újraéledési változók
-let ghostsToRespawn = 0; 
-let totalGhostsEaten = 0; 
-let totalPelletsEaten = 0; 
-let pelletHistory = []; // ÚJ TÖMB
-let respawnCooldown = 0;
-const RESPAWN_TIME = 120; // 2 másodperc 
-
-const GHOST_RADIUS = 12; 
-
-const PAC_R_WRITING_FACTOR = 0.45; 
-const PAC_R_FREE_SIZE = GHOST_RADIUS; 
-
-// Sebesség változók (dinamikusak)
-let PAC_MOVE_SPEED = 1.5; 
-let GHOST_AVG_SPEED = 1.0; 
-const GHOST_SPEED_VARIATION = 0.5; 
-
-// Fázisváltás konstansok
-const POWER_PELLET_COUNT = 5;
-const DEATH_TRAP_DURATION = 180; // 3 másodperc (kék fázis - Halálcsapda)
-const INVULNERABILITY_DURATION = 300; // 5 másodperc (piros fázis - Átjárás)
-
-let powerUpState = 'none'; // 'none', 'blue' (death), 'red' (pass)
-let powerUpTimer = 0;
-let pellets = []; 
-
-
-// === Sebességek Frissítése Csúszkákról ===
-function updateSpeeds() {
-  PAC_MOVE_SPEED = parseFloat(pacSpeedSlider.value);
-  statPacSpeed.textContent = (PAC_MOVE_SPEED * scale).toFixed(1);
-  
-  GHOST_AVG_SPEED = parseFloat(ghostSpeedSlider.value);
-  statGhostSpeed.textContent = (GHOST_AVG_SPEED * scale).toFixed(1);
-}
-
-// Csúszkák eseménykezelője
-pacSpeedSlider.addEventListener('input', updateSpeeds);
-ghostSpeedSlider.addEventListener('input', updateSpeeds);
-
-
-// === Menü Kezelés ===
-function toggleMenu() {
-  sidebar.classList.toggle('open');
-  if (sidebar.classList.contains('open')) {
-    menuButton.classList.add('hidden'); 
-  } else {
-    menuButton.classList.remove('hidden');
-  }
-}
-
-menuButton.addEventListener('click', toggleMenu);
-closeButton.addEventListener('click', toggleMenu); 
-
-
-function resize(){
-  const ratio=window.devicePixelRatio||1;
-  W=window.innerWidth; H=window.innerHeight;
-  [bgCanvas,textCanvas,gameCanvas].forEach(c=>{
-    c.width=Math.floor(W*ratio);
-    c.height=Math.floor(H*ratio);
-    c.style.width=W+'px';
-    c.style.height=H+'px';
-  });
-  bgCtx.setTransform(ratio,0,0,ratio,0,0);
-  textCtx.setTransform(ratio,0,0,ratio,0,0); 
-  ctx.setTransform(ratio,0,0,ratio,0,0);
-  scale=Math.min(W/900,H/400); 
-  fontSize=Math.floor(Math.min(W*0.08,H*0.2));
-  lineHeight=fontSize*1.2;
-  
-  updateSpeeds(); 
-}
-
-window.addEventListener('resize',()=>{resize();preparePositions();});
-resize();
-
-// === Csillag háttér ===
-let stars = Array.from({length:80},()=>({
-  x:Math.random()*W,
-  y:Math.random()*H,
-  r:Math.random()*2+1,
-  tw:Math.random()*100
-}));
-
-// === Szellemek és Fázisváltás ===
-const ghostColors=['#ff0000','#00ffde','#ffb8ff','#ffb847'];
-let ghosts=[];
-
-function spawnGhost(){
-  const c=ghostColors[Math.floor(Math.random()*ghostColors.length)];
-  let x = Math.random()*W;
-  let y = Math.random()*H/2+50;
-  
-  const minS = GHOST_AVG_SPEED - GHOST_SPEED_VARIATION;
-  const maxS = GHOST_AVG_SPEED + GHOST_SPEED_VARIATION;
-  const speed = Math.max(0.1, minS + Math.random() * (maxS - minS));
-  
-  const vx = (Math.random()<0.5?-1:1)*speed;
-  const vy = (Math.random()<0.5?-1:1)*speed;
-  ghosts.push(
-    {x,y,vx:vx,vy:vy,color:c}
-  );
-}
-
-function spawnGhosts(count = 4){ 
-  ghosts=[];
-  for(let i=0;i<count;i++) spawnGhost();
-}
-spawnGhosts(); 
-
-function drawGhost(g){
-  bgCtx.beginPath();
-  bgCtx.arc(g.x,g.y,GHOST_RADIUS,Math.PI,0,false);
-  bgCtx.lineTo(g.x+GHOST_RADIUS,g.y+GHOST_RADIUS);
-  bgCtx.lineTo(g.x+6,g.y+8);
-  bgCtx.lineTo(g.x,g.y+GHOST_RADIUS);
-  bgCtx.lineTo(g.x-6,g.y+8);
-  bgCtx.lineTo(g.x-GHOST_RADIUS,g.y+GHOST_RADIUS);
-  bgCtx.closePath();
-  
-  let fillColor = g.color;
-  const flashColor = '#fff'; 
-  
-  // Kék fázis: Halálcsapda (Kék-Fehér villogás)
-  if (powerUpState === 'blue') {
-    if (powerUpTimer % 20 < 10) { 
-      fillColor = '#28d1fa'; // Kék
-    } else {
-      fillColor = flashColor; // Fehér
-    }
-  } 
-  // Piros fázis: Átjárás (Piros-Fehér villogás)
-  else if (powerUpState === 'red') {
-    if (powerUpTimer % 20 < 10) { 
-      fillColor = '#ff0000'; // Piros
-    } else {
-      fillColor = flashColor; // Fehér
-    }
-  }
-
-  bgCtx.fillStyle=fillColor;
-  bgCtx.fill();
-  
-  // Szemek
-  bgCtx.fillStyle='#fff';
-  bgCtx.beginPath();
-  bgCtx.arc(g.x-5,g.y-2,3,0,Math.PI*2);
-  bgCtx.arc(g.x+5,g.y-2,3,0,Math.PI*2);
-  bgCtx.fill();
-  bgCtx.fillStyle='#000';
-  bgCtx.beginPath();
-  bgCtx.arc(g.x-5,g.y-2,1.5,0,Math.PI*2);
-  bgCtx.arc(g.x+5,g.y-2,1.5,0,Math.PI*2);
-  bgCtx.fill();
-}
-
-function updateBackground(){
-  bgCtx.clearRect(0,0,W,H);
-  stars.forEach(s=>{
-    s.tw+=0.05;
-    let a=0.5+Math.sin(s.tw)*0.5;
-    bgCtx.fillStyle=`rgba(255,255,255,${a})`;
-    bgCtx.beginPath();
-    bgCtx.arc(s.x,s.y,s.r,0,Math.PI*2);
-    bgCtx.fill();
-  });
-  ghosts.forEach(g=>{
-    g.x+=g.vx * scale; 
-    g.y+=g.vy * scale;
-    if(g.x<20||g.x>W-20) g.vx*=-1;
-    if(g.y<20||g.y>H-20) g.vy*=-1;
-    drawGhost(g);
-  });
-}
-
-// === Pac-Man és szöveg ===
-const pac={x:0,y:0,r:0,vx:3,mouth:0,angle:0}; 
-let lastTime=0,charIndex=0,lineIndex=0,positions=[],finished=false;
-
-function preparePositions(){
-  textCtx.font=`300 ${fontSize}px system-ui, sans-serif`;
-  textCtx.textBaseline='middle'; textCtx.textAlign='left';
-  positions=[];
-  const totalHeight=lineHeight*lines.length;
-  lines.forEach((line,i)=>{
-    let y=H/2-totalHeight/2+i*lineHeight+lineHeight/2;
-    let x=(W-textCtx.measureText(line).width)/2;
-    let linePos=[];
-    for(let j=0;j<line.length;j++){
-      let w=textCtx.measureText(line.slice(0,j+1)).width;
-      linePos.push({char:line[j],x:x+w,y});
-    }
-    positions.push(linePos);
-  });
-}
-
-function drawText(){
-  textCtx.clearRect(0,0,W,H); 
-  textCtx.fillStyle='#ffd400';
-  textCtx.font=`300 ${fontSize}px system-ui, sans-serif`;
-  textCtx.textBaseline='middle'; textCtx.textAlign='left';
-  const totalHeight=lineHeight*lines.length;
-  lines.forEach((line,i)=>{
-    let x=(W-textCtx.measureText(line).width)/2;
-    let y=H/2-totalHeight/2+i*lineHeight+lineHeight/2;
-    let visible=positions[i].filter((p,idx)=> idx<(i<lineIndex?positions[i].length:(i===lineIndex?charIndex:0)));
-    textCtx.fillText(visible.map(p=>p.char).join(''),x,y);
-  });
-  textCtx.textAlign='left'; textCtx.textBaseline='top';
-  textCtx.font=`bold ${fontSize*0.2}px Comic Sans MS, cursive`;
-}
-
-function drawPac(x,y,r,angle){
-  const mouthOpen=0.25+0.15*Math.abs(Math.sin(pac.mouth));
-  const start=angle+mouthOpen;
-  const end=angle-mouthOpen;
-  ctx.beginPath(); ctx.moveTo(x,y);
-  ctx.arc(x,y,r,start,end,false);
-  ctx.closePath();
-  ctx.fillStyle='#ffd400'; ctx.fill();
-  const eyeAngle = angle - Math.PI/2;
-  const eyeX = x + Math.cos(eyeAngle) * r * 0.5;
-  const eyeY = y + Math.sin(eyeAngle) * r * 0.5;
-  ctx.beginPath();
-  ctx.arc(eyeX,eyeY,r*0.18,0,Math.PI*2);
-  ctx.fillStyle='#fff'; ctx.fill();
-  ctx.beginPath();
-  ctx.arc(eyeX,eyeY,r*0.08,0,Math.PI*2);
-  ctx.fillStyle='#000'; ctx.fill();
-}
-
-
-// === Pac-Man Pozíció Visszaállítása ("Halál") ===
-function resetPacmanPosition() {
-    const pacR_scaled = pac.r * scale; 
-    // Pac-Man a képernyő közepére kerül
-    pac.x = W / 2; 
-    pac.y = H / 2; 
-    pac.angle = 0;
-    
-    // Pontszám büntetés
-    score = Math.max(0, score - 50);
-    scoreboard.textContent="SCORE: "+score;
-    statPointsEarned.textContent = score;
-
-    scorePopups.push({x: pac.x, y: pac.y, text: "-50 (MEGHALT)", life: 90});
-}
-
-// === Ütközés és Evés Ellenőrzés ===
-function eatGhostCheck() {
-    const pacR_scaled = pac.r * scale; 
-
-    // 1. KÉK FÁZIS: HALÁLCSAPDA
-    if (powerUpState === 'blue') {
-        const collisionOccurred = ghosts.some(g => {
-            const d = Math.hypot(g.x - pac.x, g.y - pac.y);
-            return d < pacR_scaled + 10;
-        });
-
-        if (collisionOccurred) {
-            resetPacmanPosition();
-            powerUpTimer = 0; // Fázis azonnali befejezése
-            powerUpState = 'none'; 
-            return;
-        }
-    } 
-    
-    // 2. PIROS FÁZIS: ÁTJÁRÁS (Invulnerability)
-    else if (powerUpState === 'red') {
-        return; // Nem történik semmi ütközéskor
-    }
-    
-    // 3. NORMÁL FÁZIS (none): Pac-Man elkapja a szellemet (eredeti logika)
-    else if (powerUpState === 'none') {
-        ghosts = ghosts.filter(g => {
-            const d = Math.hypot(g.x - pac.x, g.y - pac.y);
-            if (d < pacR_scaled + 10) {
-              score+=100;
-              scoreboard.textContent="SCORE: "+score;
-              
-              scorePopups.push({x: g.x, y: g.y, text: "+100", life: 60});
-              
-              ghostsToRespawn++; 
-              totalGhostsEaten++; 
-              statGhostsEaten.textContent = totalGhostsEaten;
-              statPointsEarned.textContent = score;
-        
-              respawnCooldown = 0; 
-              return false; 
-            }
-            return true; 
-          });
-    }
-}
-
-// === Pontszám popup ===
-let scorePopups = [];
-
-function drawPopups() {
-  ctx.font = `bold ${fontSize * 0.3}px system-ui, sans-serif`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  scorePopups.forEach(p => {
-    ctx.fillStyle = `rgba(255,212,0,${p.life/90})`;
-    ctx.fillText(p.text, p.x, p.y - (90 - p.life) * 0.5);
-    p.life--;
-  });
-  scorePopups = scorePopups.filter(p => p.life > 0);
-}
-
-
-// === Pellet Történet Statisztika Frissítése ===
-function updatePelletHistoryStats() {
-    statPelletHistory.innerHTML = pelletHistory.map(item => 
-        `<p style="margin: 0; white-space: nowrap;">${item.index}. ${item.type} (${item.duration / 60}s)</p>`
-    ).join('');
-}
-
-
-// === Erőpellet (Power Pellet) logika ===
-
-/**
- * Létrehoz 5 véletlenszerűen elhelyezett erőpelletet.
- */
-function generatePellets() {
-  pellets = [];
-  const pelletRadius = 10;
-  const padding = 50;
-
-  for (let i = 0; i < POWER_PELLET_COUNT; i++) {
-    let x, y, safe;
-    do {
-      x = padding + Math.random() * (W - 2 * padding);
-      y = padding + Math.random() * (H - 2 * padding);
-      safe = true;
-
-      if (x > W / 2 - 300 && x < W / 2 + 300 && y > H / 2 - 100 && y < H / 2 + 100) {
-        safe = false;
-      }
-    } while (!safe);
-    
-    pellets.push({ x: x, y: y, r: pelletRadius });
-  }
-}
-
-function drawPellets() {
-  ctx.fillStyle = '#fff'; 
-  pellets.forEach(p => {
-    const flashSize = p.r + (Math.sin(performance.now() / 150) * 2);
+// Rajzolás
+function drawFlower(f){
+  const xc = f.x * canvas.width;
+  const yc = f.y * canvas.height;
+  const r = 30*f.scale;
+  ctx.strokeStyle='#40FF80'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(xc,yc); ctx.lineTo(xc,yc+40*f.scale); ctx.stroke();
+  for(let i=0;i<f.petals;i++){
+    const angle = (i/f.petals)*2*Math.PI;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, flashSize, 0, Math.PI * 2);
+    ctx.fillStyle=`hsl(${(f.hue+i*20)%360},100%,70%)`;
+    ctx.ellipse(xc+Math.cos(angle)*r, yc+Math.sin(angle)*r, r*0.6, r*0.3, angle, 0, 2*Math.PI);
     ctx.fill();
-  });
+  }
+  ctx.beginPath(); ctx.fillStyle='#ff6'; ctx.arc(xc,yc,r*0.3,0,2*Math.PI); ctx.fill();
 }
 
-/**
- * Ellenőrzi, hogy Pac-Man elkapott-e egy erőpelletet, elindítja a ciklikus fázist és frissíti a számlálót.
- */
-function checkPelletCollision() {
-  for (let i = pellets.length - 1; i >= 0; i--) {
-    const p = pellets[i];
-    const pacR_scaled = pac.r * scale; 
-    const d = Math.hypot(p.x - pac.x, p.y - p.y);
+function drawAll(){
+  ctx.fillStyle=document.documentElement.style.getPropertyValue('--bg-dark') || '#050508'; 
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(const f of flowers) drawFlower(f);
+  requestAnimationFrame(drawAll);
+}
+drawAll();
 
-    if (d < pacR_scaled + p.r) {
-      pellets.splice(i, 1);
-      
-      // *** STATISZTIKA FRISSÍTÉSE ***
-      totalPelletsEaten++; 
-      statPelletsEaten.textContent = totalPelletsEaten; 
+// Tooltip
+const tooltip = document.getElementById('tooltip');
+const panelInfo = document.getElementById('panelInfo');
+canvas.addEventListener('mousemove', e=>{
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  let found = null;
+  for(const f of flowers){
+    const xc = f.x*canvas.width, yc = f.y*canvas.height;
+    if(Math.hypot(mx-xc,my-yc)<30*f.scale){ found=f; break; }
+  }
+  if(found){
+    tooltip.style.display='block';
+    tooltip.style.left = (e.clientX+12)+'px';
+    tooltip.style.top = (e.clientY+12)+'px';
+    tooltip.textContent = found.title;
+  }else tooltip.style.display='none';
+});
 
-      // Fázis választása a sorszám alapján (ciklikus váltás)
-      const isOdd = totalPelletsEaten % 2 !== 0; 
-      
-      let phaseType, duration, typeText;
-
-      if (isOdd) {
-          // PÁRATLAN: Átjárás / Invulnerability (Piros-Fehér)
-          phaseType = 'red';
-          duration = INVULNERABILITY_DURATION;
-          typeText = 'Átjárás (Invulnerability)';
-      } else {
-          // PÁROS: Halálcsapda / Death Trap (Kék-Fehér)
-          phaseType = 'blue';
-          duration = DEATH_TRAP_DURATION;
-          typeText = 'Halálcsapda (Death Trap)';
-      }
-
-      powerUpState = phaseType;
-      powerUpTimer = duration; 
-
-      // Történet mentése és frissítése
-      pelletHistory.push({
-          index: totalPelletsEaten, 
-          type: typeText, 
-          duration: duration
-      });
-      updatePelletHistoryStats();
-      
-      break; 
+// Klikk
+canvas.addEventListener('click', e=>{
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX-rect.left;
+  const my = e.clientY-rect.top;
+  for(const f of flowers){
+    const xc = f.x*canvas.width, yc = f.y*canvas.height;
+    if(Math.hypot(mx-xc,my-yc)<30*f.scale){
+      panelInfo.innerHTML=`<strong>${f.title}</strong><br>${f.desc}<br><a href="${f.link}" target="_blank">Megnyitás</a>`;
+      break;
     }
   }
-}
+});
 
-// === Drift szög interpoláció ===
-function lerpAngle(a, b, t) {
-  let diff = b - a;
-  while (diff > Math.PI) diff -= 2 * Math.PI;
-  while (diff < -Math.PI) diff += 2 * Math.PI;
-  return a + diff * t;
-}
+// Email küldés
+document.getElementById('sendBtn').addEventListener('click', ()=>{
+  const msg = document.getElementById('msgInput').value.trim();
+  if(!msg) return alert('Írj be üzenetet!');
+  window.location.href = `mailto:szanigyak98@gmail.com?subject=Digitális Kert&body=${encodeURIComponent(msg)}`;
+});
 
-// === Óra (Egyszerű Szöveges) ===
-function renderClockSimple() {
-  const now = new Date();
-  
-  const dateOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
-  const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-  
-  const dateStr = now.toLocaleDateString('hu-HU', dateOptions).replace(/\.$/, ''); 
-  const timeStr = now.toLocaleTimeString('hu-HU', timeOptions);
-
-  currentTimeDisplay.innerHTML = `<strong>${dateStr}</strong><br>${timeStr}`;
-}
-
-
-function animate(t){
-  const dt=(t-lastTime)/16.666; lastTime=t;
-  updateBackground();
-  ctx.clearRect(0,0,W,H); 
-  drawText(); 
-
-  pac.mouth+=0.1;
-
-  const targetRadius = finished ? PAC_R_FREE_SIZE : (fontSize * PAC_R_WRITING_FACTOR);
-  pac.r = targetRadius / scale; 
-  
-  const START_OFFSET_X = 50;
-  
-  const maxW = W; 
-  const maxH = H;
-  const pacR_scaled = pac.r * scale; 
-
-  // Fázis időzítő kezelése
-  if (powerUpTimer > 0) {
-    powerUpTimer--;
-    if (powerUpTimer === 0) {
-      powerUpState = 'none'; // Vissza a normál állapotra
-    }
+// Téma választó
+const themeSelect = document.getElementById('themeSelect');
+themeSelect.addEventListener('change', ()=>{
+  const val = themeSelect.value;
+  if(val==='darkgreen'){
+    document.documentElement.style.setProperty('--bg-dark','#071205');
+    document.documentElement.style.setProperty('--panel','rgba(0,0,0,0.06)');
+  }else{
+    document.documentElement.style.setProperty('--bg-dark','#050508');
+    document.documentElement.style.setProperty('--panel','rgba(255,255,255,0.04)');
   }
+});
 
-  if(!finished){
-    // ... író animáció ...
-    pac.x+=pac.vx; 
-    
-    if(lineIndex<positions.length){
-      if(charIndex<positions[lineIndex].length){
-        if(pac.x>=positions[lineIndex][charIndex].x) charIndex++;
-      } else {
-        lineIndex++; charIndex=0;
-        if(lineIndex<positions.length){
-          pac.x=positions[lineIndex][0].x-START_OFFSET_X;
-          pac.y=positions[lineIndex][0].y;
-        } else finished=true;
-      }
-    }
-  } else { // Szabad mozgás
-    
-    checkPelletCollision(); 
-    eatGhostCheck(); 
-    
-    // Késleltetett újraéledési mechanizmus
-    if (ghostsToRespawn > 0) {
-        respawnCooldown++;
-        if (respawnCooldown >= RESPAWN_TIME) {
-            spawnGhost();
-            ghostsToRespawn--; 
-            respawnCooldown = 0;
-        }
-    }
-    
-    let moveSpeed = PAC_MOVE_SPEED; 
-    
-    let targetAngle;
-    
-    let nearest=null,dist=Infinity;
-    ghosts.forEach(g=>{
-      const d=Math.hypot(g.x-pac.x,g.y-pac.y);
-      if(d<dist){dist=d; nearest=g;}
-    });
+// Admin login
+let loggedIn = false;
+const loginPopup = document.getElementById('loginPopup');
+const loginBtn = document.getElementById('loginBtn');
+const projectInput = document.getElementById('projectInput');
+const projectLink = document.getElementById('projectLink');
+const addProjectBtn = document.getElementById('addProjectBtn');
 
-    if(nearest){
-        targetAngle=Math.atan2(nearest.y-pac.y,nearest.x-pac.x);
-    } else {
-        const currentAngle = pac.angle;
-        let newAngle = currentAngle;
-
-        if (pac.x <= pacR_scaled || pac.x >= maxW - pacR_scaled) {
-            newAngle = Math.PI - currentAngle; 
-        }
-        
-        if (pac.y <= pacR_scaled || pac.y >= maxH - pacR_scaled) {
-            newAngle = -currentAngle; 
-        }
-        
-        targetAngle = newAngle;
-        
-        if (pac.x <= pacR_scaled || pac.x >= maxW - pacR_scaled || pac.y <= pacR_scaled || pac.y >= maxH - pacR_scaled) {
-            pac.angle = targetAngle;
-        } else {
-            targetAngle = pac.angle; 
-        }
-    }
-    
-    // Szög interpoláció és mozgás
-    if (targetAngle !== undefined) {
-        pac.angle = lerpAngle(pac.angle, targetAngle, 0.1 * dt); 
-
-        pac.x+=Math.cos(pac.angle)*moveSpeed*scale;
-        pac.y+=Math.sin(pac.angle)*moveSpeed*scale;
-    }
-    
-    // Határellenőrzés 
-    if(pac.x<pacR_scaled) pac.x=pacR_scaled;
-    if(pac.y<pacR_scaled) pac.y=pacR_scaled;
-    if(pac.x>maxW-pacR_scaled) pac.x=maxW-pacR_scaled;
-    if(pac.y>maxH-pacR_scaled) pac.y=maxH-pacR_scaled;
+loginBtn.addEventListener('click', ()=>{
+  if(loggedIn){
+    loggedIn=false;
+    loginBtn.textContent='Bejelentkezés';
+    projectInput.style.display='none';
+    projectLink.style.display='none';
+    addProjectBtn.style.display='none';
+  } else {
+    loginPopup.style.display='block';
   }
+});
 
-  drawPopups();
-  drawPellets(); 
-  drawPac(pac.x,pac.y,pacR_scaled,pac.angle); 
+document.getElementById('doLoginBtn').addEventListener('click', ()=>{
+  const u = document.getElementById('username').value;
+  const p = document.getElementById('password').value;
+  if(u==='admin' && p==='admin'){
+    loggedIn=true;
+    loginPopup.style.display='none';
+    loginBtn.textContent='Kijelentkezés';
+    projectInput.style.display='inline-block';
+    projectLink.style.display='inline-block';
+    addProjectBtn.style.display='inline-block';
+  } else alert('Hibás felhasználó/jelszó!');
+});
 
-  renderClockSimple(); 
-  requestAnimationFrame(animate);
-}
-
-function init(){
-  preparePositions();
-  
-  const initialR = (fontSize * PAC_R_WRITING_FACTOR); 
-  pac.r = initialR;
-  
-  pac.x=positions[0][0].x-50;
-  pac.y=positions[0][0].y;
-  
-  pac.angle=0;
-  charIndex=0; lineIndex=0; finished=false;
-  lastTime=performance.now();
-  
-  ghostsToRespawn = 0; 
-  totalGhostsEaten = 0;
-  totalPelletsEaten = 0; 
-  pelletHistory = []; // Történet nullázása
-  respawnCooldown = 0;
-  
-  powerUpState = 'none';
-  powerUpTimer = 0;
-  
-  statGhostsEaten.textContent = 0;
-  statPointsEarned.textContent = 0;
-  statPelletsEaten.textContent = 0; 
-  statPelletHistory.innerHTML = ''; // Történet kijelző nullázása
-  
-  updateSpeeds();
-  generatePellets();
-
-  requestAnimationFrame(animate);
-}
-preparePositions(); init();
+// Új projekt hozzáadás
+addProjectBtn.addEventListener('click', ()=>{
+  const title = projectInput.value.trim();
+  const link = projectLink.value.trim();
+  if(!title || !link) return alert('Adj meg címet és linket!');
+  const newFlower = {id:flowers.length+1,x:Math.random()*0.8+0.1,y:Math.random()*0.6+0.2,scale:1,hue:Math.random()*360,title,desc:'Admin által hozzáadott projekt',petals:Math.floor(Math.random()*3)+5, link};
+  flowers.push(newFlower);
+  projectInput.value=''; projectLink.value='';
+});
 </script>
 </body>
 </html>
