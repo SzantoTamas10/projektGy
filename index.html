@@ -23,7 +23,7 @@ header.appbar{ position:absolute; left:12px; top:12px; right:12px; display:flex;
 .controls { margin-left:auto; display:flex; gap:8px; align-items:center }
 select, button, input[type="text"], input[type="password"]{ background:var(--panel); color:var(--text-light); border:1px solid rgba(255,255,255,0.03); padding:8px 10px; border-radius:8px; }
 button { cursor:pointer; font-weight:600 }
-aside.panel { width:380px; max-width:40%; min-width:300px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-left: 1px solid rgba(255,255,255,0.03); padding:18px; box-sizing:border-box; overflow:auto; }
+aside.panel { width:380px; max-width:40%; min-width:300px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-left: 1px solid rgba(255,255,255,0.03); padding:18px; box-sizing:border-box; overflow:auto; display:flex; flex-direction:column; gap:12px; }
 h2{margin:0 0 8px 0}
 .meta{color:var(--muted); font-size:13px; margin-bottom:12px}
 .tooltip { position:fixed; pointer-events:none; z-index:80; padding:8px 10px; border-radius:8px; background:rgba(0,0,0,0.7); color:var(--text-light); font-size:13px; box-shadow:0 6px 18px rgba(0,0,0,0.6); display:none; }
@@ -31,6 +31,9 @@ select#themeSelect option { color:#000; background:#fff; }
 .login-popup { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);padding:30px;border-radius:12px;display:none;z-index:100;}
 .login-popup input { display:block;margin:8px 0;width:200px; }
 .login-popup button { width:100%; }
+.project-item{border:1px solid rgba(255,255,255,0.05);padding:6px;margin-bottom:6px;border-radius:6px;}
+.project-item button{margin-top:4px;background:var(--accent);border:none;color:white;padding:4px 8px;border-radius:6px;cursor:pointer;}
+.admin-section{display:flex;flex-direction:column;gap:6px;}
 </style>
 </head>
 <body>
@@ -50,21 +53,32 @@ select#themeSelect option { color:#000; background:#fff; }
           <option value="dark">Sötét</option>
           <option value="darkgreen">Sötét zöld</option>
         </select>
-        <input id="projectInput" type="text" placeholder="Új projekt neve..." style="min-width:200px; display:none"/>
-        <input id="projectLink" type="text" placeholder="Projekt link..." style="min-width:200px; display:none"/>
-        <button id="addProjectBtn" style="display:none">Hozzáadás</button>
         <button id="loginBtn">Bejelentkezés</button>
       </div>
     </header>
   </div>
 
   <aside class="panel" id="controlPanel">
-    <h2>Vezérlőpanel</h2>
-    <div class="meta">Kattints a virágokra, hogy az információ megjelenjen.</div>
-    <div style="margin-top:12px;">
+    <!-- Üzenetküldés mindig felül -->
+    <div id="messageSection">
       <input id="msgInput" type="text" placeholder="Írd ide az üzenetet..." style="width:70%;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text-light);"/>
       <button id="sendBtn" style="padding:6px 10px;border-radius:6px;background:var(--accent);border:none;color:white;cursor:pointer;">Küldés</button>
     </div>
+
+    <!-- Projektlista és admin vezérlés -->
+    <div id="projectsSection">
+      <h2>Vezérlőpanel</h2>
+      <div class="meta">Kattints a virágokra, hogy az információ megjelenjen.</div>
+      <div id="projectList"></div>
+
+      <div id="adminControls" class="admin-section" style="display:none;">
+        <input type="text" id="projectTitle" placeholder="Projekt neve"/>
+        <input type="text" id="projectDesc" placeholder="Leírás"/>
+        <input type="text" id="projectLink" placeholder="Link"/>
+        <button id="addProjectBtn">Projekt hozzáadása</button>
+      </div>
+    </div>
+
     <div id="panelInfo" class="meta" style="margin-top:12px;">A virágokra kattintva jelenik meg a részlete.</div>
   </aside>
 </div>
@@ -86,7 +100,7 @@ function resizeCanvas(){ canvas.width = canvas.clientWidth; canvas.height = canv
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Virág adatok (3 virág alap)
+// Virágok adatok
 let flowers = [
   {id:1,x:0.25,y:0.4,scale:1,hue:60,title:'Projekt 1',desc:'Személyes portfólió',petals:6,link:'https://example.com/1'},
   {id:2,x:0.5,y:0.6,scale:1,hue:180,title:'Projekt 2',desc:'Mini játék',petals:7,link:'https://example.com/2'},
@@ -138,8 +152,9 @@ canvas.addEventListener('mousemove', e=>{
   }else tooltip.style.display='none';
 });
 
-// Klikk
+// Klikk — csak bejelentkezett admin aktiválhatja
 canvas.addEventListener('click', e=>{
+  if(!loggedIn) return; // nincs bejelentkezve, semmi sem történik
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX-rect.left;
   const my = e.clientY-rect.top;
@@ -176,44 +191,84 @@ themeSelect.addEventListener('change', ()=>{
 let loggedIn = false;
 const loginPopup = document.getElementById('loginPopup');
 const loginBtn = document.getElementById('loginBtn');
-const projectInput = document.getElementById('projectInput');
-const projectLink = document.getElementById('projectLink');
-const addProjectBtn = document.getElementById('addProjectBtn');
+const adminControls = document.getElementById('adminControls');
+const projectListDiv = document.getElementById('projectList');
 
 loginBtn.addEventListener('click', ()=>{
   if(loggedIn){
     loggedIn=false;
     loginBtn.textContent='Bejelentkezés';
-    projectInput.style.display='none';
-    projectLink.style.display='none';
-    addProjectBtn.style.display='none';
+    adminControls.style.display='none';
+    refreshProjectList(); // frissítjük a projekt lista gombokat
   } else {
     loginPopup.style.display='block';
   }
 });
 
-document.getElementById('doLoginBtn').addEventListener('click', ()=>{
+function loginAction(){
   const u = document.getElementById('username').value;
   const p = document.getElementById('password').value;
   if(u==='admin' && p==='admin'){
     loggedIn=true;
     loginPopup.style.display='none';
     loginBtn.textContent='Kijelentkezés';
-    projectInput.style.display='inline-block';
-    projectLink.style.display='inline-block';
-    addProjectBtn.style.display='inline-block';
+    adminControls.style.display='flex';
+    refreshProjectList();
   } else alert('Hibás felhasználó/jelszó!');
-});
+}
+
+// Enter gomb a loginhoz
+document.getElementById('username').addEventListener('keypress', e=>{ if(e.key==='Enter') loginAction(); });
+document.getElementById('password').addEventListener('keypress', e=>{ if(e.key==='Enter') loginAction(); });
+document.getElementById('doLoginBtn').addEventListener('click', loginAction);
 
 // Új projekt hozzáadás
-addProjectBtn.addEventListener('click', ()=>{
-  const title = projectInput.value.trim();
-  const link = projectLink.value.trim();
+document.getElementById('addProjectBtn').addEventListener('click', ()=>{
+  if(!loggedIn) return alert('Be kell jelentkezned a módosításhoz!');
+  const title = document.getElementById('projectTitle').value.trim();
+  const desc = document.getElementById('projectDesc').value.trim();
+  const link = document.getElementById('projectLink').value.trim();
   if(!title || !link) return alert('Adj meg címet és linket!');
-  const newFlower = {id:flowers.length+1,x:Math.random()*0.8+0.1,y:Math.random()*0.6+0.2,scale:1,hue:Math.random()*360,title,desc:'Admin által hozzáadott projekt',petals:Math.floor(Math.random()*3)+5, link};
+  const newFlower = {
+    id:flowers.length?Math.max(...flowers.map(f=>f.id))+1:1,
+    x:Math.random()*0.8+0.1,
+    y:Math.random()*0.6+0.2,
+    scale:1,
+    hue:Math.random()*360,
+    title,
+    desc:desc||'Admin által hozzáadott projekt',
+    petals:Math.floor(Math.random()*3)+5,
+    link
+  };
   flowers.push(newFlower);
-  projectInput.value=''; projectLink.value='';
+  document.getElementById('projectTitle').value='';
+  document.getElementById('projectDesc').value='';
+  document.getElementById('projectLink').value='';
+  refreshProjectList();
 });
+
+// Projekt lista frissítés — csak bejelentkezett adminnal engedélyezett a törlés
+function refreshProjectList(){
+  projectListDiv.innerHTML='';
+  flowers.forEach(f=>{
+    const div = document.createElement('div');
+    div.className='project-item';
+    div.innerHTML=`<strong>${f.title}</strong><br>${f.desc}<br><a href="${f.link}" target="_blank">Link</a>`;
+    
+    if(loggedIn){
+      const delBtn = document.createElement('button');
+      delBtn.textContent='Törlés';
+      delBtn.onclick=()=>{ 
+        flowers = flowers.filter(p=>p.id!==f.id); 
+        refreshProjectList(); 
+      };
+      div.appendChild(delBtn);
+    }
+    
+    projectListDiv.appendChild(div);
+  });
+}
+refreshProjectList();
 </script>
 </body>
 </html>
