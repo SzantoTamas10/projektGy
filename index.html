@@ -59,13 +59,11 @@ select#themeSelect option { color:#000; background:#fff; }
   </div>
 
   <aside class="panel" id="controlPanel">
-    <!-- Üzenetküldés mindig felül -->
     <div id="messageSection">
       <input id="msgInput" type="text" placeholder="Írd ide az üzenetet..." style="width:70%;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text-light);"/>
       <button id="sendBtn" style="padding:6px 10px;border-radius:6px;background:var(--accent);border:none;color:white;cursor:pointer;">Küldés</button>
     </div>
 
-    <!-- Projektlista és admin vezérlés -->
     <div id="projectsSection">
       <h2>Vezérlőpanel</h2>
       <div class="meta">Kattints a virágokra, hogy az információ megjelenjen.</div>
@@ -93,21 +91,26 @@ select#themeSelect option { color:#000; background:#fff; }
 </div>
 
 <script>
-// Canvas setup
+// --------------------- NETLIFY BACKEND INTEGRÁCIÓ -------------------------
+
+let flowers = []; // tömb üres, betöltés NETLIFY-ről lesz
+
+async function loadProjects() {                                   // <-- NETLIFY API
+  const res = await fetch('/.netlify/functions/projects');
+  const data = await res.json();
+  flowers = data;
+  refreshProjectList();
+}
+loadProjects();
+
+// ---------------------------- Canvas setup -------------------------------
+
 const canvas = document.getElementById('gardenCanvas');
 const ctx = canvas.getContext('2d');
 function resizeCanvas(){ canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Virágok adatok
-let flowers = [
-  {id:1,x:0.25,y:0.4,scale:1,hue:60,title:'Projekt 1',desc:'Személyes portfólió',petals:6,link:'https://example.com/1'},
-  {id:2,x:0.5,y:0.6,scale:1,hue:180,title:'Projekt 2',desc:'Mini játék',petals:7,link:'https://example.com/2'},
-  {id:3,x:0.75,y:0.35,scale:1,hue:300,title:'Projekt 3',desc:'Blog',petals:5,link:'https://example.com/3'}
-];
-
-// Rajzolás
 function drawFlower(f){
   const xc = f.x * canvas.width;
   const yc = f.y * canvas.height;
@@ -132,9 +135,11 @@ function drawAll(){
 }
 drawAll();
 
-// Tooltip
+// ---------------------------- Tooltip -----------------------------------
+
 const tooltip = document.getElementById('tooltip');
 const panelInfo = document.getElementById('panelInfo');
+
 canvas.addEventListener('mousemove', e=>{
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -152,9 +157,12 @@ canvas.addEventListener('mousemove', e=>{
   }else tooltip.style.display='none';
 });
 
-// Klikk — csak bejelentkezett admin aktiválhatja
+// --------------------------- Klikk (admin) ------------------------------
+
+let loggedIn = false;
+
 canvas.addEventListener('click', e=>{
-  if(!loggedIn) return; // nincs bejelentkezve, semmi sem történik
+  if(!loggedIn) return;
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX-rect.left;
   const my = e.clientY-rect.top;
@@ -167,14 +175,16 @@ canvas.addEventListener('click', e=>{
   }
 });
 
-// Email küldés
+// ---------------------------- Üzenet küldés ------------------------------
+
 document.getElementById('sendBtn').addEventListener('click', ()=>{
   const msg = document.getElementById('msgInput').value.trim();
   if(!msg) return alert('Írj be üzenetet!');
   window.location.href = `mailto:szanigyak98@gmail.com?subject=Digitális Kert&body=${encodeURIComponent(msg)}`;
 });
 
-// Téma választó
+// ----------------------------- Téma váltó -------------------------------
+
 const themeSelect = document.getElementById('themeSelect');
 themeSelect.addEventListener('change', ()=>{
   const val = themeSelect.value;
@@ -187,8 +197,8 @@ themeSelect.addEventListener('change', ()=>{
   }
 });
 
-// Admin login
-let loggedIn = false;
+// ------------------------------- Admin ----------------------------------
+
 const loginPopup = document.getElementById('loginPopup');
 const loginBtn = document.getElementById('loginBtn');
 const adminControls = document.getElementById('adminControls');
@@ -199,7 +209,7 @@ loginBtn.addEventListener('click', ()=>{
     loggedIn=false;
     loginBtn.textContent='Bejelentkezés';
     adminControls.style.display='none';
-    refreshProjectList(); // frissítjük a projekt lista gombokat
+    refreshProjectList();
   } else {
     loginPopup.style.display='block';
   }
@@ -217,37 +227,57 @@ function loginAction(){
   } else alert('Hibás felhasználó/jelszó!');
 }
 
-// Enter gomb a loginhoz
 document.getElementById('username').addEventListener('keypress', e=>{ if(e.key==='Enter') loginAction(); });
 document.getElementById('password').addEventListener('keypress', e=>{ if(e.key==='Enter') loginAction(); });
 document.getElementById('doLoginBtn').addEventListener('click', loginAction);
 
-// Új projekt hozzáadás
+// ---------------------- PROJEKT HOZZÁADÁSA (NETLIFY) ---------------------
+
+async function addProject(title, desc, link) {                    // <-- NETLIFY API
+  const newFlower = {
+    title,
+    desc,
+    link,
+    x: Math.random()*0.8 + 0.1,
+    y: Math.random()*0.6 + 0.2,
+    scale: 1,
+    hue: Math.floor(Math.random()*360),
+    petals: Math.floor(Math.random()*3)+5
+  };
+
+  const res = await fetch('/.netlify/functions/projects', {
+    method: 'POST',
+    body: JSON.stringify(newFlower)
+  });
+
+  const saved = await res.json();
+  flowers.push(saved);
+  refreshProjectList();
+}
+
 document.getElementById('addProjectBtn').addEventListener('click', ()=>{
-  if(!loggedIn) return alert('Be kell jelentkezned a módosításhoz!');
+  if(!loggedIn) return alert('Be kell jelentkezned!');
   const title = document.getElementById('projectTitle').value.trim();
   const desc = document.getElementById('projectDesc').value.trim();
   const link = document.getElementById('projectLink').value.trim();
   if(!title || !link) return alert('Adj meg címet és linket!');
-  const newFlower = {
-    id:flowers.length?Math.max(...flowers.map(f=>f.id))+1:1,
-    x:Math.random()*0.8+0.1,
-    y:Math.random()*0.6+0.2,
-    scale:1,
-    hue:Math.random()*360,
-    title,
-    desc:desc||'Admin által hozzáadott projekt',
-    petals:Math.floor(Math.random()*3)+5,
-    link
-  };
-  flowers.push(newFlower);
-  document.getElementById('projectTitle').value='';
-  document.getElementById('projectDesc').value='';
-  document.getElementById('projectLink').value='';
-  refreshProjectList();
+  addProject(title, desc, link);
 });
 
-// Projekt lista frissítés — csak bejelentkezett adminnal engedélyezett a törlés
+// ---------------------- PROJEKT TÖRLÉSE (NETLIFY) -----------------------
+
+async function deleteProject(id) {                                 // <-- NETLIFY API
+  await fetch('/.netlify/functions/projects', {
+    method: 'DELETE',
+    body: JSON.stringify({ id })
+  });
+
+  flowers = flowers.filter(f => f.id !== id);
+  refreshProjectList();
+}
+
+// -------------------------- LISTA FRISSÍTÉS -----------------------------
+
 function refreshProjectList(){
   projectListDiv.innerHTML='';
   flowers.forEach(f=>{
@@ -258,17 +288,14 @@ function refreshProjectList(){
     if(loggedIn){
       const delBtn = document.createElement('button');
       delBtn.textContent='Törlés';
-      delBtn.onclick=()=>{ 
-        flowers = flowers.filter(p=>p.id!==f.id); 
-        refreshProjectList(); 
-      };
+      delBtn.onclick=()=> deleteProject(f.id);
       div.appendChild(delBtn);
     }
     
     projectListDiv.appendChild(div);
   });
 }
-refreshProjectList();
+
 </script>
 </body>
 </html>
